@@ -1,0 +1,14 @@
+services:
+  litmayak_backend:
+    container_name: litmayak_backend
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - 3000:3000
+    networks:
+      - postgres_postgres_service
+
+networks:
+  postgres_postgres_service:
+    external: true
