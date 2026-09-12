@@ -30,7 +30,7 @@ import {
 import { BookCollectionMetaService } from '@/profile/book_collections/book_collection_meta.service';
 import { BookCollectionsService } from '@/profile/book_collections/book_collections.service';
 
-@ApiTags('Коллекции книг')
+@ApiTags('Коллекции')
 @Controller('profile/books/collections')
 export class BookCollectionsController {
   constructor(

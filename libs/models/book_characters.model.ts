@@ -1,4 +1,5 @@
 import {
+  BelongsTo,
   Column,
   DataType,
   ForeignKey,
@@ -18,6 +19,9 @@ export class BookCharacters extends Model {
   @Column({ type: DataType.BOOLEAN })
   declare status: boolean;
 
+  @Column({ type: DataType.STRING(255) })
+  declare name: string;
+
   @Column({ type: DataType.BOOLEAN })
   declare checkStatus: boolean;
 
@@ -29,4 +33,7 @@ export class BookCharacters extends Model {
 
   @Column({ type: DataType.INTEGER })
   declare order: number;
+
+  @BelongsTo(() => Books)
+  declare book: Books;
 }

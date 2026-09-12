@@ -7,5 +7,6 @@ import { UserFavoriteBooksService } from '@/profile/user_favorites/user_favorite
   imports: [SequelizeModule.forFeature([UserFavoriteBooks])],
   controllers: [],
   providers: [UserFavoriteBooksService],
+  exports: [UserFavoriteBooksService],
 })
 export class UserFavoriteModule {}

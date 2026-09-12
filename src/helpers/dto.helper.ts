@@ -25,8 +25,11 @@ export const transformNumValue = ({ value }) => parseInt(value, 10);
 export const transformQueryAttrsValue = ({ value }) =>
   Array.isArray(value) ? value : [value];
 
-export const transformOrderListValue = ({ value }: { value: string }) =>
-  value.toLocaleLowerCase() === 'desc' ? 'desc' : 'asc';
+export const transformOrderListValue = ({ value }: { value: unknown }) =>
+  String(value ?? '').toLocaleLowerCase() === 'desc' ? 'DESC' : 'ASC';
+
+export const transformTrimString = ({ value }) =>
+  typeof value === 'string' ? value.trim() : value;
 
 export const validPhoneDeep = (phone: string): boolean => {
   const patterns = [

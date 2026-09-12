@@ -35,7 +35,11 @@ export class UsersController {
   ): Promise<ResponseDto<number>> {
     let err: any = null;
     try {
-      const result = await this.usersService.update(userId, request);
+      const result = await this.usersService.update(
+        { ...request },
+        { where: { id: userId } },
+      )[0];
+
       return { result };
     } catch (e) {
       if (e instanceof Error) {

@@ -10,7 +10,6 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { AuthMiddleware } from '@/middlewares/auth.middleware';
 import { UsersController } from '@/profile/users/users.controller';
 import { AbilityFactory } from '@/ability/ability.factory';
-import { authConfigProvider } from 'configs/jwt.config';
 import { RolesModule } from '@/roles/roles.module';
 import { LoggerModule } from '@/logger/logger.module';
 import { AuthorsModule } from '@/profile/authors/authors.module';
@@ -24,6 +23,7 @@ import { ProfileBooksController } from '@/profile/books/profile_books.controller
 import { SchedulersModule } from '@/schedulers/schedulers.module';
 import { BookCollectionsController } from '@/profile/book_collections/book_collections.controller';
 import { GenresModule } from '@/genres/genres.module';
+import { BookCharactersController } from './profile/book_characters/book_characters.controller';
 
 @Module({
   imports: [
@@ -49,7 +49,7 @@ import { GenresModule } from '@/genres/genres.module';
 
     ScheduleModule.forRoot(),
   ],
-  providers: [AbilityFactory, authConfigProvider],
+  providers: [AbilityFactory],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
@@ -63,6 +63,7 @@ export class AppModule implements NestModule {
         ProfileBooksController,
         UserBookReviewsController,
         BookCollectionsController,
+        BookCharactersController,
       );
   }
 }

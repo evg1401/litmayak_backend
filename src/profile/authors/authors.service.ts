@@ -54,6 +54,14 @@ export class AuthorsService {
     return !!existingAuthor;
   }
 
+  async getAuthorProfileByUserId(userId: number): Promise<Authors | null> {
+    const existingAuthor = await this.authorsRepository.findOne({
+      where: { userId },
+    });
+
+    return existingAuthor;
+  }
+
   private async createAuthorProfile(
     userId: number,
     request: CreateAuthorRequestDto,
