@@ -9,6 +9,7 @@ import {
   Patch,
   Post,
   Res,
+  UseGuards,
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
@@ -19,12 +20,15 @@ import {
 import { httpExeptHandler } from '@/helpers';
 import { ResponseDto } from 'dto/response.dto';
 import type { IUserLocals } from 'libs/interfaces';
-import { UserLocals } from '@/decorators';
+import { CheckAbilities, UserLocals } from '@/decorators';
 import { Authors } from '@models';
 import type { Response } from 'express';
+import { AbilitiesGuard } from '@/guards/abilities.guard';
+import { Actions, Subjects } from '@/common/constants/abilities.constants';
 
 @ApiTags('Авторы')
 @Controller('profile/authors')
+@UseGuards(AbilitiesGuard)
 export class AuthorsController {
   constructor(private readonly authorsService: AuthorsService) {}
 
@@ -37,6 +41,7 @@ export class AuthorsController {
       skipNullProperties: true,
     }),
   )
+  @CheckAbilities({ action: Actions.Update, subject: Subjects.Authors })
   async update(
     @Body()
     request: UpdateAuthorRequestDto,
@@ -67,6 +72,7 @@ export class AuthorsController {
       skipNullProperties: true,
     }),
   )
+  @CheckAbilities({ action: Actions.Create, subject: Subjects.Authors })
   async register(
     @Body()
     request: CreateAuthorRequestDto,
@@ -93,6 +99,7 @@ export class AuthorsController {
 
   @ApiOperation({ summary: 'проверка статуса автора' })
   @Get('is-author')
+  @CheckAbilities({ action: Actions.Read, subject: Subjects.Authors })
   async isAuthor(
     @UserLocals() { userId }: IUserLocals,
   ): Promise<ResponseDto<boolean>> {
@@ -100,7 +107,7 @@ export class AuthorsController {
 
     try {
       const result = await this.authorsService.isAuthor(userId);
-      
+
       return { result };
     } catch (e) {
       if (e instanceof Error) {

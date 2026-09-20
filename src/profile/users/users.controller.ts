@@ -31,7 +31,7 @@ export class UsersController {
   async update(
     @Body()
     request: UpdateUserRequestDto,
-    @UserLocals() { userId, ability }: IUserLocals,
+    @UserLocals() { userId }: IUserLocals,
   ): Promise<ResponseDto<number>> {
     let err: any = null;
     try {

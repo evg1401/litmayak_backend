@@ -16,13 +16,13 @@ export class BookCharacters extends Model {
   @Column({ type: DataType.INTEGER })
   declare bookId: number;
 
-  @Column({ type: DataType.BOOLEAN })
+  @Column({ type: DataType.BOOLEAN, defaultValue: false })
   declare status: boolean;
 
-  @Column({ type: DataType.STRING(255) })
+  @Column({ type: DataType.STRING(255), allowNull: false })
   declare name: string;
 
-  @Column({ type: DataType.BOOLEAN })
+  @Column({ type: DataType.BOOLEAN, defaultValue: false })
   declare checkStatus: boolean;
 
   @Column({ type: DataType.STRING(255) })

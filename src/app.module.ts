@@ -20,6 +20,7 @@ import { UserBookReviewsController } from '@/profile/book_reviews/user_book_revi
 import { ScheduleModule } from '@nestjs/schedule';
 import { ProfileModule } from '@/profile/profile.module';
 import { ProfileBooksController } from '@/profile/books/profile_books.controller';
+import { UserFavoritesBookController } from '@/profile/user_favorites/book_favorites.controller';
 import { SchedulersModule } from '@/schedulers/schedulers.module';
 import { BookCollectionsController } from '@/profile/book_collections/book_collections.controller';
 import { GenresModule } from '@/genres/genres.module';
@@ -61,6 +62,7 @@ export class AppModule implements NestModule {
         AuthorsController,
         PublishingHousesController,
         ProfileBooksController,
+        UserFavoritesBookController,
         UserBookReviewsController,
         BookCollectionsController,
         BookCharactersController,

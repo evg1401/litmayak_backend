@@ -1,42 +1,35 @@
 import { httpExeptHandler } from '@/helpers';
-import { Books, UserFavoriteBooks } from '@models';
+import { Books } from '@models';
 import {
   BadRequestException,
   Body,
   Controller,
-  Get,
   HttpCode,
   HttpStatus,
   Param,
   Patch,
   Post,
-  Query,
+  UseGuards,
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { PageList, ResponseDto } from 'dto/response.dto';
+import { ResponseDto } from 'dto/response.dto';
 import type { IUserLocals } from 'libs/interfaces';
-import { UserLocals } from '@/decorators';
+import { CheckAbilities, UserLocals } from '@/decorators';
 import {
   CreateBooksRequestDto,
   UpdateBooksRequestDto,
 } from './dto/books.request.dto';
-import {
-  AddBookFavoritesRequestDto,
-  DeleteBatchBookFavoritesRequestDto,
-} from './dto/book_favorites.request';
 import { ProfileBooksService } from './profile_books.service';
-import { QueryParamsRequestDto } from 'dto/request.dto';
-import { UserFavoriteBooksService } from '@/profile/user_favorites/user_favorite_books.service';
+import { Actions, Subjects } from '@/common/constants/abilities.constants';
+import { AbilitiesGuard } from '@/guards/abilities.guard';
 
 @ApiTags('Книги')
 @Controller('profile/books')
+@UseGuards(AbilitiesGuard)
 export class ProfileBooksController {
-  constructor(
-    private readonly profileBooksService: ProfileBooksService,
-    private readonly userFavoriteBooksService: UserFavoriteBooksService,
-  ) {}
+  constructor(private readonly profileBooksService: ProfileBooksService) {}
 
   @ApiOperation({ summary: 'создать книгу' })
   @Post()
@@ -48,6 +41,7 @@ export class ProfileBooksController {
       skipNullProperties: true,
     }),
   )
+  @CheckAbilities({ action: Actions.Create, subject: Subjects.Books })
   async createBook(
     @Body()
     request: CreateBooksRequestDto,
@@ -74,101 +68,21 @@ export class ProfileBooksController {
       skipNullProperties: true,
     }),
   )
+  @CheckAbilities({ action: Actions.Update, subject: Subjects.Books })
   async update(
-    @Param('id') id: string,
+    @Param('id') idStr: string,
     @Body()
     request: UpdateBooksRequestDto,
     @UserLocals() { userId }: IUserLocals,
   ): Promise<ResponseDto<number>> {
     try {
-      const result = await this.profileBooksService.update(
-        userId,
-        parseInt(id, 10),
-        request,
-      );
-      return { result };
-    } catch (e) {
-      if (e instanceof Error) {
-        throw new BadRequestException({ result: null, message: e.message });
+      const id = parseInt(idStr, 10);
+      if (Number.isNaN(id)) {
+        throw new Error('Произошла ошибка при обработке запроса');
       }
 
-      throw httpExeptHandler(e);
-    }
-  }
-
-  @ApiOperation({ summary: 'добавить книгу в избранное' })
-  @Post('favorites/add')
-  async addToFavorite(
-    @Body()
-    request: AddBookFavoritesRequestDto,
-    @UserLocals() { userId }: IUserLocals,
-  ): Promise<ResponseDto<number>> {
-    try {
-      const result = await this.profileBooksService.addToFavorite(
-        userId,
-        request.bookId,
-      );
-
+      const result = await this.profileBooksService.update(userId, id, request);
       return { result };
-    } catch (e) {
-      if (e instanceof Error) {
-        throw new BadRequestException({ result: null, message: e.message });
-      }
-
-      throw httpExeptHandler(e);
-    }
-  }
-
-  @ApiOperation({ summary: 'удалить книги из избранного' })
-  @Post('favorites/delete-batch')
-  async deleteFromFavorite(
-    @Body()
-    request: DeleteBatchBookFavoritesRequestDto,
-    @UserLocals() { userId }: IUserLocals,
-  ): Promise<ResponseDto<number>> {
-    try {
-      const result = await this.profileBooksService.deleteFromFavorite(
-        userId,
-        request.ids,
-      );
-
-      return { result };
-    } catch (e) {
-      if (e instanceof Error) {
-        throw new BadRequestException({ result: null, message: e.message });
-      }
-
-      throw httpExeptHandler(e);
-    }
-  }
-
-  @ApiOperation({ summary: 'список избранного' })
-  @Get('favorites')
-  @UsePipes(
-    new ValidationPipe({
-      transform: true,
-      whitelist: true,
-      skipNullProperties: true,
-    }),
-  )
-  async getList(
-    @Query() query: QueryParamsRequestDto,
-  ): Promise<ResponseDto<PageList<UserFavoriteBooks>>> {
-    try {
-      const [total, items] = await Promise.all([
-        this.userFavoriteBooksService.countListItems(),
-        this.userFavoriteBooksService.getList(
-          ...query.buildOrderPaginationParams(),
-        ),
-      ]);
-
-      return {
-        result: {
-          count: items.length,
-          total,
-          items,
-        },
-      };
     } catch (e) {
       if (e instanceof Error) {
         throw new BadRequestException({ result: null, message: e.message });

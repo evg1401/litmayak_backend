@@ -59,6 +59,7 @@ export const authConfigProvider: Provider<AuthOpts> = {
 export const validateJwt = (
   jwt: string,
   jwtSecret: string,
+  iss: string,
   tokenType: string,
 ): string | JwtPayload | null => {
   try {
@@ -66,7 +67,7 @@ export const validateJwt = (
 
     if (
       !payload?.['userId'] ||
-      !payload?.['iss'] ||
+      payload?.['iss'] !== iss ||
       payload?.['aud'] !== tokenType
     ) {
       return null;

@@ -1,4 +1,5 @@
 import { transformTrimString } from '@/helpers';
+import { IsOptionalNotNull } from '@/decorators';
 import { ApiProperty } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
@@ -29,7 +30,7 @@ export class CreateBookCharactersRequestDto {
   @ApiProperty({ description: 'наименование' })
   @Transform(transformTrimString)
   @MinLength(3)
-  @MaxLength(256)
+  @MaxLength(255)
   @IsString()
   declare name: string;
 
@@ -41,26 +42,31 @@ export class CreateBookCharactersRequestDto {
 
 export class UpdateBookCharactersRequestDto {
   @ApiProperty({ description: 'статус публикации' })
-  @IsOptional()
+  @IsOptionalNotNull()
   @IsBoolean()
   declare status?: boolean;
 
   @ApiProperty({ description: 'сортировка' })
-  @IsOptional()
+  @IsOptionalNotNull()
   @IsInt()
   declare order: number;
 
   @ApiProperty({ description: 'наименование' })
   @Transform(transformTrimString)
   @MinLength(3)
-  @MaxLength(256)
-  @IsOptional()
+  @MaxLength(255)
+  @IsOptionalNotNull()
   @IsString()
   declare name: string;
 
+  @ApiProperty({ description: 'ссылка на титульное изображение главы' })
+  @IsOptionalNotNull()
+  @IsUrl()
+  declare cdnLinkFolder: string;
+
   // @ApiProperty({ description: 'текст главы' })
   // @Transform(transformTrimString)
-  // @IsOptional()
+  // @IsOptionalNotNull()
   // @IsString()
   // declare text: string;
 }

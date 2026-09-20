@@ -24,6 +24,7 @@ export class AuthMiddleware implements NestMiddleware {
       const payload = validateJwt(
         at,
         this.authConfig.jwt.secret,
+        this.authConfig.jwt.iss,
         JwtTypes.Access,
       ) as JwtPayload | null;
 

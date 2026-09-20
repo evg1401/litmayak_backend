@@ -77,10 +77,6 @@ export class AuthService {
 
     await this.logoutIfRefreshNotExist(authToken);
 
-    // const authToken = await this.authTokensRepository.findOne({
-    //   where: { userId: foundUser.id, deviceUid },
-    // });
-
     if (
       authToken != null &&
       authToken.deviceUid == deviceUid &&
@@ -247,6 +243,7 @@ export class AuthService {
     const payload = validateJwt(
       rt,
       this.authConfig.jwt.secret,
+      this.authConfig.jwt.iss,
       JwtTypes.Refresh,
     ) as JwtPayload | null;
 
@@ -318,22 +315,6 @@ export class AuthService {
   }
 
   private isNotAllowAction(authToken: AuthTokens): boolean {
-    // let authToken = await this.authTokensRepository.findOne({
-    //   where: { userId, deviceUid },
-    // });
-
-    // if (!authToken) {
-    //   authToken = await this.authTokensRepository.create({ userId, deviceUid });
-    //   // throw new InternalServerErrorException(
-    //   //   'Ошибка при авторизации пользователя',
-    //   // );
-    // }
-
-    // const expiryTime = new Date(authToken.updatedAt.getTime() + 180 * 1000);
-    // if (new Date() < expiryTime) {
-    //   return true;
-    // }
-
     const now = Date.now();
     const expiryTime = now - authToken.codeCreatedAt;
 
@@ -344,17 +325,6 @@ export class AuthService {
     if (!authToken.refreshToken) {
       return false;
     }
-
-    // const payload = validateJwt(
-    //   authToken.refreshToken,
-    //   this.authConfig.jwt.secret,
-    //   JwtTypes.Refresh,
-    // );
-    // if (!payload) {
-    //   if (authToken.refreshToken.length > 0) {
-    //     await this.logout(authToken.deviceUid);
-    //   }
-    // }
 
     return false;
   }
@@ -367,6 +337,7 @@ export class AuthService {
     const payload = validateJwt(
       authToken.refreshToken,
       this.authConfig.jwt.secret,
+      this.authConfig.jwt.iss,
       JwtTypes.Refresh,
     );
 
@@ -389,34 +360,14 @@ export class AuthService {
       });
 
       if (orphanToken) {
-        // orphanToken.userId = userId;
-        // orphanToken.code = code;
-        // orphanToken.codeCreatedAt = Date.now();
         Object.assign(orphanToken, { ...authTokenQuery });
         await orphanToken.save();
       } else {
-        // const authTokenQuery = this.createAuthTokenQuery(
-        //   userId,
-        //   deviceUid,
-        //   code,
-        // );
-
         await this.authTokensRepository.create(authTokenQuery);
       }
     } else {
-      // authToken.code = code;
-      // authToken.codeCreatedAt = Date.now();
       Object.assign(authToken, { ...authTokenQuery });
       await authToken.save();
-      // if (
-      //   authToken.refreshToken === '' &&
-      //   (authToken.deviceUid === '' || authToken.deviceUid === deviceUid)
-      // ) {
-      //   // Object.assign(authToken, { ...authTokenQuery });
-      //   await authToken.save();
-      // } else {
-      //   await this.authTokensRepository.create(authTokenQuery);
-      // }
     }
   }
 
@@ -466,12 +417,6 @@ export class AuthService {
         'Ошибка при авторизации пользователя',
       );
     }
-
-    // const createAuthTokenQuery = {
-    //   userId: result.id,
-    //   deviceUid,
-    //   code,
-    // }
 
     const authTokenQuery = this.createAuthTokenQuery(user.id, deviceUid, code);
 
