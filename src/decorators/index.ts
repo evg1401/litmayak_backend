@@ -1,3 +1,5 @@
 export * from './device_uid.decorator'
 export * from './user.decorator'
 export * from './legal_info.decorator'
+export * from './check_abilities.decorator'
+export * from './is_optional_not_null.decorator'

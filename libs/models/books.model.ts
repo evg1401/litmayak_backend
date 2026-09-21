@@ -49,10 +49,10 @@ export class Books extends Model {
   @Column({ type: DataType.STRING(50) })
   declare language: string;
 
-  @Column({ type: DataType.BOOLEAN })
+  @Column({ type: DataType.BOOLEAN, defaultValue: false })
   declare status: boolean;
 
-  @Column({ type: DataType.BOOLEAN })
+  @Column({ type: DataType.BOOLEAN, defaultValue: false })
   declare checkStatus: boolean;
 
   @Column({ type: DataType.INTEGER })

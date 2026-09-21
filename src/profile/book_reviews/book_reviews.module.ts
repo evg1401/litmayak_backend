@@ -9,5 +9,6 @@ import { UserBookReviewsController } from './user_book_reviews.controller';
   imports: [SequelizeModule.forFeature([BookReviews, UserBookReviews])],
   controllers: [UserBookReviewsController],
   providers: [BookReviewsService, UserBookReviewsService],
+  exports: [BookReviewsService, UserBookReviewsService],
 })
 export class BookReviewsModule {}

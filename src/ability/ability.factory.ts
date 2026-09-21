@@ -118,18 +118,19 @@ export class AbilityFactory {
     userId: number,
   ): LoadedPermission | null {
     const plainPermission = this.toPlainPermission(permission);
-    const action = this.parseStringList(plainPermission.action);
-    const subject = this.parseStringList(plainPermission.subject);
-    const type = plainPermission.type;
 
-    if (!action || !subject || !this.isPermissionAction(type)) {
+    if (
+      !plainPermission.action ||
+      !plainPermission.subject ||
+      !this.isPermissionAction(plainPermission.type)
+    ) {
       return null;
     }
 
     return {
-      action,
-      subject,
-      type,
+      action: plainPermission.action,
+      subject: plainPermission.subject,
+      type: plainPermission.type,
       fields: this.parseStringList(plainPermission.fields),
       conditions: this.parseConditions(plainPermission.conditions, userId),
     };

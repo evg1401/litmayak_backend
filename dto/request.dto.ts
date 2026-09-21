@@ -32,23 +32,16 @@ export class QueryParamsRequestDto {
   declare order?: string;
 
   buildOrderPaginationParams() {
-    let order: Order = [['id', 'ASC']];
+    const order: Order = [
+      [this.sort ?? 'id', this.order === 'DESC' ? 'DESC' : 'ASC'],
+    ];
+
     const result: [
       number | undefined,
       number | undefined,
       string[] | undefined,
       Order | undefined,
     ] = [this.page, this.limit, this.attrs, order];
-
-    if (this.sort) {
-      order[0][0] = this.sort;
-
-      if (this.order) {
-        order[0][1] = this.order;
-      } else {
-        order[0][1] = 'ASC';
-      }
-    }
 
     return result;
   }

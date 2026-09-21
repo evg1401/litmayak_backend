@@ -3,16 +3,20 @@ import { Users } from '@models';
 import { InjectModel } from '@nestjs/sequelize';
 import { UpdateUserRequestDto } from './dto/users.request.dto';
 import { AppLogger } from '@/logger/logger.service';
+import { CrudService } from 'libs/common/crud';
 
 @Injectable()
-export class UsersService {
+export class UsersService extends CrudService<Users> {
   constructor(
     private readonly logger: AppLogger,
-    @InjectModel(Users) protected usersRepository: typeof Users,
-  ) {}
+    @InjectModel(Users)
+    protected model: typeof Users,
+  ) {
+    super();
+  }
 
-  async update(userId: number, request: UpdateUserRequestDto): Promise<number> {
-    const result = await this.usersRepository.update(
+  async updateUser(userId: number, request: UpdateUserRequestDto): Promise<number> {
+    const result = await this.update(
       { ...request },
       { where: { id: userId } },
     );
@@ -22,7 +26,7 @@ export class UsersService {
 
   async updateRoleByUserId(userId: number, roleId: number): Promise<number> {
     try {
-      const user = await this.usersRepository.update(
+      const user = await this.update(
         { roleId },
         { where: { id: userId } },
       );

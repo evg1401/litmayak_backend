@@ -1,5 +1,5 @@
 import { httpExeptHandler } from '@/helpers';
-import { UserLocals } from '@/decorators';
+import { CheckAbilities, UserLocals } from '@/decorators';
 import {
   BookCollections,
   BookCollectionsMeta,
@@ -11,10 +11,13 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   Patch,
   Post,
   Query,
+  UseGuards,
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
@@ -29,9 +32,12 @@ import {
 } from '@/profile/book_collections/dto/book_collections.request';
 import { BookCollectionMetaService } from '@/profile/book_collections/book_collection_meta.service';
 import { BookCollectionsService } from '@/profile/book_collections/book_collections.service';
+import { AbilitiesGuard } from '@/guards/abilities.guard';
+import { Actions, Subjects } from '@/common/constants/abilities.constants';
 
-@ApiTags('Коллекции книг')
+@ApiTags('Коллекции')
 @Controller('profile/books/collections')
+@UseGuards(AbilitiesGuard)
 export class BookCollectionsController {
   constructor(
     private readonly bookCollectionMetaService: BookCollectionMetaService,
@@ -40,6 +46,7 @@ export class BookCollectionsController {
 
   @ApiOperation({ summary: 'создать коллекцию' })
   @Post()
+  @HttpCode(HttpStatus.CREATED)
   @UsePipes(
     new ValidationPipe({
       transform: false,
@@ -47,6 +54,7 @@ export class BookCollectionsController {
       skipNullProperties: true,
     }),
   )
+  @CheckAbilities({ action: Actions.Create, subject: Subjects.BookCollections })
   async createCollection(
     @Body() request: CreateOrUpdateBookCollectionRequestDto,
     @UserLocals() { userId }: IUserLocals,
@@ -76,13 +84,19 @@ export class BookCollectionsController {
       skipNullProperties: true,
     }),
   )
+  @CheckAbilities({ action: Actions.Read, subject: Subjects.BookCollections })
   async getList(
-    @Param('id') id: string,
+    @Param('id') idStr: string,
     @Query() query: QueryParamsRequestDto,
     @UserLocals() { userId }: IUserLocals,
   ): Promise<ResponseDto<PageList<BookCollectionsMeta>>> {
     try {
-      await this.bookCollectionsService.getUserCollection(userId, parseInt(id, 10));
+      const id = parseInt(idStr, 10);
+      if (Number.isNaN(id)) {
+        throw new Error('Произошла ошибка при обработке запроса');
+      }
+
+      await this.bookCollectionsService.getUserCollection(userId, id);
 
       const include = [
         {
@@ -134,15 +148,21 @@ export class BookCollectionsController {
       skipNullProperties: true,
     }),
   )
+  @CheckAbilities({ action: Actions.Update, subject: Subjects.BookCollections })
   async updateCollection(
-    @Param('id') id: string,
+    @Param('id') idStr: string,
     @Body() request: CreateOrUpdateBookCollectionRequestDto,
     @UserLocals() { userId }: IUserLocals,
   ): Promise<ResponseDto<BookCollections>> {
     try {
+      const id = parseInt(idStr, 10);
+      if (Number.isNaN(id)) {
+        throw new Error('Произошла ошибка при обработке запроса');
+      }
+
       const result = await this.bookCollectionsService.updateCollection(
         userId,
-        parseInt(id, 10),
+        id,
         request,
       );
 
@@ -165,6 +185,7 @@ export class BookCollectionsController {
       skipNullProperties: true,
     }),
   )
+  @CheckAbilities({ action: Actions.Create, subject: Subjects.BookCollections })
   async addBook(
     @Body() request: AddBookToCollectionRequestDto,
     @UserLocals() { userId }: IUserLocals,
@@ -194,6 +215,7 @@ export class BookCollectionsController {
       skipNullProperties: true,
     }),
   )
+  @CheckAbilities({ action: Actions.Delete, subject: Subjects.BookCollections })
   async deleteBooks(
     @Body() request: DeleteBatchBooksFromCollectionRequestDto,
     @UserLocals() { userId }: IUserLocals,

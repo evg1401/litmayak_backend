@@ -67,17 +67,18 @@ export class PublishingHousesController {
     }),
   )
   async update(
-    @Param('id') id: string,
+    @Param('id') idStr: string,
     @Body()
     request: UpdatePublishingHousesRequestDto,
   ): Promise<ResponseDto<number>> {
     let err: any = null;
-
     try {
-      const result = await this.publishingHousesService.update(
-        parseInt(id, 10),
-        request,
-      );
+      const id = parseInt(idStr, 10);
+      if (Number.isNaN(id)) {
+        throw new Error('Произошла ошибка при обработке запроса');
+      }
+
+      const result = await this.publishingHousesService.update(id, request);
       return { result };
     } catch (e) {
       if (e instanceof Error) {

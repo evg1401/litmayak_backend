@@ -31,11 +31,15 @@ export class UsersController {
   async update(
     @Body()
     request: UpdateUserRequestDto,
-    @UserLocals() { userId, ability }: IUserLocals,
+    @UserLocals() { userId }: IUserLocals,
   ): Promise<ResponseDto<number>> {
     let err: any = null;
     try {
-      const result = await this.usersService.update(userId, request);
+      const result = await this.usersService.update(
+        { ...request },
+        { where: { id: userId } },
+      )[0];
+
       return { result };
     } catch (e) {
       if (e instanceof Error) {

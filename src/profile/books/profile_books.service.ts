@@ -1,4 +1,4 @@
-import { Authors, Books, PublishingHouses, UserFavoriteBooks } from '@models';
+import { Authors, Books, PublishingHouses } from '@models';
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import {
@@ -6,12 +6,10 @@ import {
   UpdateBooksRequestDto,
 } from './dto/books.request.dto';
 import slugConverter from 'slug';
-import { UserFavoriteBooksService } from '@/profile/user_favorites/user_favorite_books.service';
 
 @Injectable()
 export class ProfileBooksService {
   constructor(
-    protected userFavoriteBooksService: UserFavoriteBooksService,
     @InjectModel(Books)
     protected booksRepository: typeof Books,
     @InjectModel(PublishingHouses)
@@ -63,35 +61,6 @@ export class ProfileBooksService {
     );
 
     return result[0];
-  }
-
-  async addToFavorite(userId: number, bookId: number): Promise<number> {
-    const existingFavorite = await this.userFavoriteBooksService.getItem({
-      where: { userId, bookId },
-    });
-
-    if (existingFavorite) {
-      return existingFavorite.id;
-    }
-
-    const existingBook = await this.booksRepository.findByPk(bookId);
-
-    if (!existingBook) {
-      throw new Error('книга не найдена');
-    }
-
-    const favorite = await this.userFavoriteBooksService.create({
-      userId,
-      bookId,
-    });
-
-    return favorite.id;
-  }
-
-  async deleteFromFavorite(userId: number, bookIds: number[]): Promise<number> {
-    return this.userFavoriteBooksService.delete({
-      where: { userId, bookId: bookIds },
-    });
   }
 
   private async getAuthorByUserId(userId: number): Promise<Authors> {

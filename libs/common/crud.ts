@@ -1,5 +1,6 @@
 import { getOffsetFromPage } from '@/helpers';
 import {
+  Attributes,
   CreationAttributes,
   FindAttributeOptions,
   FindOptions,
@@ -7,6 +8,7 @@ import {
   Model,
   ModelStatic,
   Order,
+  UpdateOptions,
 } from 'sequelize';
 
 export abstract class CrudService<T extends Model<T>> {
@@ -18,6 +20,13 @@ export abstract class CrudService<T extends Model<T>> {
 
   async createBatch(items: CreationAttributes<T>[]): Promise<number> {
     return (await this.model.bulkCreate(items)).length;
+  }
+
+  async update(
+    item: CreationAttributes<T>,
+    options: UpdateOptions<Attributes<T>>,
+  ): Promise<number[]> {
+    return this.model.update(this.validateFieldsBeforeUpdate(item), options);
   }
 
   async getListAll(
@@ -38,7 +47,7 @@ export abstract class CrudService<T extends Model<T>> {
     }
 
     return this.model.findAll({
-      order,
+      order: this.validateOrder(order),
       attributes,
       include,
     });
@@ -54,7 +63,7 @@ export abstract class CrudService<T extends Model<T>> {
     return this.model.findAll({
       offset: getOffsetFromPage(page, limit),
       limit,
-      order,
+      order: this.validateOrder(order),
       attributes: {
         include: this.validateAttrs(attrs),
         exclude: ['authorId', 'updatedAt'],
@@ -89,12 +98,29 @@ export abstract class CrudService<T extends Model<T>> {
     const result = {};
 
     for (const key in items) {
-      if (this.model.getAttributes()[key]) {
+      if (Object.hasOwn(this.model.getAttributes(), key)) {
         result[key] = items[key];
       }
     }
 
     return result;
+  }
+
+  protected validateOrder(order: Order): Order {
+    const fallback: Order = [['id', 'ASC']];
+
+    if (!Array.isArray(order)) return fallback;
+
+    const attributes = this.model.getAttributes();
+
+    const result = order.filter(
+      (item) =>
+        Array.isArray(item) &&
+        typeof item[0] === 'string' &&
+        Object.hasOwn(attributes, item[0]),
+    );
+
+    return result.length > 0 ? (result as Order) : fallback;
   }
 
   protected validateAttrs(attrs: string[]): string[] | undefined {
@@ -105,7 +131,7 @@ export abstract class CrudService<T extends Model<T>> {
     for (let index = 0; index < attrs.length; index++) {
       const attr = attrs[index];
 
-      if (this.model.getAttributes()[attr]) {
+      if (Object.hasOwn(this.model.getAttributes(), attr)) {
         result.push(attr);
       }
     }

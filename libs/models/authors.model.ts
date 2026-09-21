@@ -31,7 +31,7 @@ export class Authors extends Model {
   @Column({ type: DataType.STRING(50) })
   declare phone: string;
 
-  @Column({ type: DataType.BOOLEAN })
+  @Column({ type: DataType.BOOLEAN, defaultValue: true })
   declare status: boolean;
 
   @Column({ type: DataType.INTEGER })

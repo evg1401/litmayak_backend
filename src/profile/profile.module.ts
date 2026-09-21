@@ -5,6 +5,8 @@ import { PublishingHousesModule } from '@/publishing_houses/publishing_houses.mo
 import { ProfileBooksModule } from './books/profile_books.module';
 import { BookReviewsModule } from './book_reviews/book_reviews.module';
 import { BookCollectionsModule } from '@/profile/book_collections/book_collections.module';
+import { BookCharactersModule } from '@/profile/book_characters/book_characters.module';
+import { UserFavoriteModule } from '@/profile/user_favorites/user_favorites.module';
 
 @Module({
   imports: [
@@ -14,6 +16,8 @@ import { BookCollectionsModule } from '@/profile/book_collections/book_collectio
     ProfileBooksModule,
     BookReviewsModule,
     BookCollectionsModule,
+    BookCharactersModule,
+    UserFavoriteModule,
   ],
   controllers: [],
   providers: [],
