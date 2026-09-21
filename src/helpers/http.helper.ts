@@ -1,22 +1,3 @@
-import { HttpStatus } from '@nestjs/common';
-
-type HttpExept = {
-  result: any;
-  statusCode: HttpStatus;
-  error?: string;
-};
-
-// export const newHttpExept = ({ result, statusCode, error }: HttpExept) => {
-//   throw new HttpException(
-//     {
-//       result,
-//       status_code: statusCode,
-//       error: error ?? null,
-//     },
-//     statusCode,
-//   );
-// };
-
 export const httpExeptHandler = (e: unknown) => {
   Object.assign({ result: null }, e);
 

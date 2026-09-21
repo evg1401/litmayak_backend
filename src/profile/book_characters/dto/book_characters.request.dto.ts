@@ -63,10 +63,4 @@ export class UpdateBookCharactersRequestDto {
   @IsOptionalNotNull()
   @IsUrl()
   declare cdnLinkFolder: string;
-
-  // @ApiProperty({ description: 'текст главы' })
-  // @Transform(transformTrimString)
-  // @IsOptionalNotNull()
-  // @IsString()
-  // declare text: string;
 }

@@ -68,6 +68,7 @@ export class AbilityFactory {
         } else {
           // this.logger.warn(`Unknown permission type: ${perm.type}`);
         }
+        
         return acc;
       },
       { can: [], cannot: [] } as {
