@@ -18,4 +18,18 @@ export const WORD_DOC_MIME_TYPES: string[] = [
   'application/vnd.ms-word.template.macroEnabled.12',
 ];
 
-export const DOC_MAX_SIZE_BYTES = 10 * 1024 * 1024;
+export enum Fb2DocumentExtensions {
+  Fb2 = '.fb2',
+}
+
+export const FB2_DOC_EXT: Fb2DocumentExtensions[] = Object.values(
+  Fb2DocumentExtensions,
+);
+
+export const FB2_DOC_MIME_TYPES: string[] = [
+  'application/x-fictionbook+xml',
+  'application/xml',
+  'text/xml',
+  'application/octet-stream',
+  '',
+];

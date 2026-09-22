@@ -9,6 +9,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -35,7 +36,7 @@ import { ResponseDto } from 'dto/response.dto';
 import { AbilitiesGuard } from '@/guards/abilities.guard';
 import { Actions, Subjects } from '@/common/constants/abilities.constants';
 import { AppLogger } from '@/logger/logger.service';
-import { DOC_MAX_SIZE_BYTES } from './constants';
+import { DOC_MAX_SIZE_BYTES } from 'configs/documents.config';
 import {
   SUPPORT_DOC_EXT,
   SUPPORT_DOC_MIME_TYPES,
@@ -169,7 +170,7 @@ export class BookCharactersController {
       },
     },
   })
-  @Patch(':id/content')
+  @Put(':id/content')
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({
