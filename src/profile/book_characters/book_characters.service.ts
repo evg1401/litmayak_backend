@@ -43,7 +43,7 @@ export class BookCharactersService extends CrudService<BookCharacters> {
     }
 
     const currentCharacter = await this.getItem({
-      where: { name: request.name },
+      where: { name: request.name, bookId: existingBook.id },
     });
 
     if (currentCharacter) {
