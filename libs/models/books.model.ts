@@ -11,7 +11,16 @@ import { Authors } from './authors.model';
 import { PublishingHouses } from './publishing_houses.model';
 import { BookReviews } from '@models';
 
-@Table({ tableName: 'books' })
+@Table({
+  tableName: 'books',
+  indexes: [
+    {
+      name: 'book_author_id_slug_uniq',
+      unique: true,
+      fields: ['author_id', 'slug'],
+    },
+  ],
+})
 export class Books extends Model {
   declare id: number;
 

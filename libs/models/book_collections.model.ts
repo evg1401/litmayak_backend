@@ -9,7 +9,16 @@ import {
 import { Users } from './users.model';
 import { Authors } from './authors.model';
 
-@Table({ tableName: 'book_collections' })
+@Table({
+  tableName: 'book_collections',
+  indexes: [
+    {
+      name: 'book_collections_user_id_slug_uniq',
+      unique: true,
+      fields: ['user_id', 'slug'],
+    },
+  ],
+})
 export class BookCollections extends Model {
   declare id: number;
 
@@ -27,7 +36,7 @@ export class BookCollections extends Model {
   @Column({ type: DataType.STRING(100) })
   declare slug: string;
 
-  @Column({ type: DataType.BOOLEAN })
+  @Column({ type: DataType.BOOLEAN, defaultValue: false })
   declare status: boolean;
 
   @Column({ type: DataType.INTEGER })

@@ -4,6 +4,7 @@ import {
   Column,
   DataType,
   ForeignKey,
+  Index,
   Model,
   Table,
 } from 'sequelize-typescript';
@@ -23,6 +24,7 @@ export class Users extends Model {
   @Column({ type: DataType.STRING(256) })
   declare fullname: string;
 
+  @Index({ unique: true })
   @Column({ type: DataType.STRING(50) })
   declare phone: string;
 

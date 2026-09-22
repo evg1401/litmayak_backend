@@ -34,6 +34,11 @@ export class ProfileBooksService {
 
     const slug = slugConverter(request.name, { locale: 'ru', lower: true });
 
+    const existingBook = await this.booksRepository.findOne({
+      where: { authorId: author.id, slug },
+    });
+    if (existingBook) throw new Error('книга с таким названием уже существует');
+
     return this.booksRepository.create({
       ...request,
       authorId: author.id,

@@ -11,7 +11,16 @@ import { Users } from './users.model';
 // import { BookCharacters } from './book_characters.model';
 
 // оценки пользователей
-@Table({ tableName: 'user_book_reviews' })
+@Table({
+  tableName: 'user_book_reviews',
+  indexes: [
+    {
+      name: 'user_book_reviews_user_id_book_id_uniq',
+      unique: true,
+      fields: ['user_id', 'book_id'],
+    },
+  ],
+})
 export class UserBookReviews extends Model {
   declare id: number;
 

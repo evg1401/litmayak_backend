@@ -2,6 +2,7 @@ import {
   BelongsToMany,
   Column,
   DataType,
+  Index,
   Model,
   Table,
 } from 'sequelize-typescript';
@@ -12,6 +13,7 @@ import { RolePermissions } from './role_permissions.model';
 export class Roles extends Model {
   declare id: number;
 
+  @Index({ unique: true })
   @Column({ type: DataType.STRING(50) })
   declare code: string;
 

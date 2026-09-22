@@ -8,7 +8,16 @@ import {
 } from 'sequelize-typescript';
 import { Books } from './books.model';
 
-@Table({ tableName: 'book_characters' })
+@Table({
+  tableName: 'book_characters',
+  indexes: [
+    {
+      name: 'book_characters_book_id_name_uniq',
+      unique: true,
+      fields: ['book_id', 'name'],
+    },
+  ],
+})
 export class BookCharacters extends Model {
   declare id: number;
 

@@ -9,7 +9,16 @@ import {
 import { Books } from './books.model';
 import { BookCollections } from './book_collections.model';
 
-@Table({ tableName: 'book_collection_meta' })
+@Table({
+  tableName: 'book_collection_meta',
+  indexes: [
+    {
+      name: 'book_collection_meta_book_id_book_collection_id_uniq',
+      unique: true,
+      fields: ['book_id', 'book_collection_id'],
+    },
+  ],
+})
 export class BookCollectionsMeta extends Model {
   declare id: number;
 
