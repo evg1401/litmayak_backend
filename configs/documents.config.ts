@@ -13,9 +13,9 @@ const toMaxSizeBytes = (maxSizeMb: string | undefined): number =>
 export const documentsConfigProvider: Provider<DocumentsOpts> = {
   provide: 'DOCUMENTS_CONFIG',
   useFactory: (configService: ConfigService) => ({
-    maxSizeBytes: toMaxSizeBytes(configService.get('DOC_MAX_SIZE_MB')),
+    maxSizeBytes: toMaxSizeBytes(configService.get('DOC_CHARACTER_MAX_SIZE_MB')),
   }),
   inject: [ConfigService],
 };
 
-export const DOC_MAX_SIZE_BYTES = toMaxSizeBytes(process.env.DOC_MAX_SIZE_MB);
+export const DOC_MAX_SIZE_BYTES = toMaxSizeBytes(process.env.DOC_CHARACTER_MAX_SIZE_MB);
