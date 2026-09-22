@@ -1,4 +1,6 @@
+import { transformTrimString } from '@/helpers';
 import { ApiProperty } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 import {
   IsInt,
   IsOptional,
@@ -13,27 +15,32 @@ export class CreateBooksRequestDto {
   @IsInt()
   declare publishingHouseId?: number;
 
-  @ApiProperty({ description: 'наименование' })
+  @ApiProperty({ description: 'наименование', maxLength: 256 })
+  @Transform(transformTrimString)
   @MinLength(1)
   @MaxLength(256)
   @IsString()
   declare name: string;
 
-  @ApiProperty({ description: 'uid' })
+  @ApiProperty({ description: 'uid', maxLength: 256 })
+  @Transform(transformTrimString)
   @MaxLength(256)
   @IsString()
   declare uid: string;
 
-  @ApiProperty({ description: 'год' })
+  @ApiProperty({ description: 'год', maxLength: 256 })
+  @Transform(transformTrimString)
   @MaxLength(256)
   @IsString()
   declare year: string;
 
   @ApiProperty({ description: 'описание' })
+  @Transform(transformTrimString)
   @IsString()
   declare description: string;
 
-  @ApiProperty({ description: 'язык' })
+  @ApiProperty({ description: 'язык', maxLength: 50 })
+  @Transform(transformTrimString)
   @MaxLength(50)
   @IsString()
   declare language: string;
@@ -45,31 +52,36 @@ export class UpdateBooksRequestDto {
   @IsInt()
   declare publishingHouseId?: number | null;
 
-  @ApiProperty({ description: 'наименование' })
+  @ApiProperty({ description: 'наименование', maxLength: 256 })
+  @Transform(transformTrimString)
   @IsOptional()
   @MinLength(1)
   @MaxLength(256)
   @IsString()
   declare name?: string;
 
-  @ApiProperty({ description: 'uid' })
+  @ApiProperty({ description: 'uid', maxLength: 256 })
+  @Transform(transformTrimString)
   @IsOptional()
   @MaxLength(256)
   @IsString()
   declare uid?: string;
 
-  @ApiProperty({ description: 'год' })
+  @ApiProperty({ description: 'год', maxLength: 256 })
+  @Transform(transformTrimString)
   @IsOptional()
   @MaxLength(256)
   @IsString()
   declare year?: string;
 
   @ApiProperty({ description: 'описание' })
+  @Transform(transformTrimString)
   @IsOptional()
   @IsString()
   declare description?: string;
 
-  @ApiProperty({ description: 'язык' })
+  @ApiProperty({ description: 'язык', maxLength: 50 })
+  @Transform(transformTrimString)
   @IsOptional()
   @MaxLength(50)
   @IsString()

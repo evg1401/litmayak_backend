@@ -29,6 +29,17 @@ export enum JwtTypes {
   Access = 'access',
 }
 
+const toAsciiDomain = (domain: string): string => {
+  if (!domain) return domain;
+
+  const hasLeadingDot = domain.startsWith('.');
+  const { hostname } = new URL(
+    `https://${hasLeadingDot ? domain.slice(1) : domain}`,
+  );
+
+  return hasLeadingDot ? `.${hostname}` : hostname;
+};
+
 export const authConfigProvider: Provider<AuthOpts> = {
   provide: 'AUTH_CONFIG',
   useFactory: (configService: ConfigService) => ({
@@ -50,7 +61,9 @@ export const authConfigProvider: Provider<AuthOpts> = {
       authCodeInterval: 60, // сек
     },
     cookie: {
-      cookieDomain: configService.get('COOKIE_DOMAIN') ?? 'localhost',
+      cookieDomain: toAsciiDomain(
+        configService.get('COOKIE_DOMAIN') ?? 'localhost',
+      ),
     },
   }),
   inject: [ConfigService],

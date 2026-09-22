@@ -1,6 +1,6 @@
 import {
   BelongsTo,
-  BelongsToMany,
+  // BelongsToMany,
   Column,
   DataType,
   ForeignKey,
@@ -33,6 +33,9 @@ export class Users extends Model {
 
   @Column({ type: DataType.BOOLEAN })
   declare status: boolean;
+
+  @Column({ type: DataType.JSONB })
+  declare additionalFields: any;
 
   // @BelongsToMany(() => Permissions, () => RolePermissions)
   // declare permissions: Permissions[];

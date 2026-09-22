@@ -4,6 +4,8 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Get,
+  NotFoundException,
   Patch,
   UsePipes,
   ValidationPipe,
@@ -13,11 +15,36 @@ import { httpExeptHandler } from '@/helpers';
 import { ResponseDto } from 'dto/response.dto';
 import type { IUserLocals } from 'libs/interfaces';
 import { UserLocals } from '@/decorators';
+import { Users } from '@models';
 
 @ApiTags('Пользователи')
 @Controller('profile/users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
+
+  @ApiOperation({ summary: 'профиль текущего пользователя' })
+  @Get()
+  async getProfile(
+    @UserLocals() { userId }: IUserLocals,
+  ): Promise<ResponseDto<Users>> {
+    try {
+      const result = await this.usersService.getProfile(userId);
+      if (!result) {
+        throw new NotFoundException({
+          result: null,
+          message: 'профиль пользователя не найден',
+        });
+      }
+
+      return { result };
+    } catch (e) {
+      if (e instanceof Error) {
+        throw new BadRequestException({ result: null, message: e.message });
+      }
+
+      throw httpExeptHandler(e);
+    }
+  }
 
   @ApiOperation({ summary: 'обновить профиль' })
   @Patch()

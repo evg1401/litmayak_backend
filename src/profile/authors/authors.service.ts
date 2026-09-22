@@ -54,6 +54,21 @@ export class AuthorsService {
     return !!existingAuthor;
   }
 
+  async getProfile(userId: number): Promise<Authors | null> {
+    return this.authorsRepository.findOne({
+      where: { userId },
+      attributes: [
+        'nickname',
+        'showOnlyNickname',
+        'images',
+        'email',
+        'phone',
+        'status',
+        'createdAt',
+      ],
+    });
+  }
+
   async getAuthorProfileByUserId(userId: number): Promise<Authors | null> {
     const existingAuthor = await this.authorsRepository.findOne({
       where: { userId },
@@ -67,6 +82,14 @@ export class AuthorsService {
     request: CreateAuthorRequestDto,
   ): Promise<Authors> {
     try {
+      const existingAuthor = await this.authorsRepository.findOne({
+        where: { nickname: request.nickname },
+      });
+
+      if (existingAuthor) {
+        throw new Error('Никнэйм уже занят. Придумайте другой.');
+      }
+
       const result = await this.authorsRepository.create({
         ...request,
         userId,

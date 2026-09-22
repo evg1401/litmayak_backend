@@ -1,5 +1,7 @@
 import { NAME_REGEX_PATTERN } from '@/common/constants/regex.constants';
+import { transformTrimString } from '@/helpers';
 import { ApiProperty } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 import {
   IsArray,
   IsInt,
@@ -12,6 +14,7 @@ import {
 
 export class CreateOrUpdateBookCollectionRequestDto {
   @ApiProperty({ description: 'наименование коллекции', maxLength: 50 })
+  @Transform(transformTrimString)
   @IsString()
   @MaxLength(50)
   @Matches(NAME_REGEX_PATTERN, {

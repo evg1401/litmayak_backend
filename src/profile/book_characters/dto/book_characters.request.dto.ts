@@ -22,12 +22,17 @@ export class CreateBookCharactersRequestDto {
   @IsBoolean()
   status: boolean = false;
 
-  @ApiProperty({ description: 'ссылка на титульное изображение главы' })
+  @ApiProperty({
+    description: 'ссылка на титульное изображение главы',
+    maxLength: 255,
+  })
+  @Transform(transformTrimString)
   @IsOptional()
+  @MaxLength(255)
   @IsUrl()
   declare cdnLinkFolder: string;
 
-  @ApiProperty({ description: 'наименование' })
+  @ApiProperty({ description: 'наименование', maxLength: 255 })
   @Transform(transformTrimString)
   @MinLength(3)
   @MaxLength(255)
@@ -51,7 +56,7 @@ export class UpdateBookCharactersRequestDto {
   @IsInt()
   declare order: number;
 
-  @ApiProperty({ description: 'наименование' })
+  @ApiProperty({ description: 'наименование', maxLength: 255 })
   @Transform(transformTrimString)
   @MinLength(3)
   @MaxLength(255)
@@ -59,8 +64,13 @@ export class UpdateBookCharactersRequestDto {
   @IsString()
   declare name: string;
 
-  @ApiProperty({ description: 'ссылка на титульное изображение главы' })
+  @ApiProperty({
+    description: 'ссылка на титульное изображение главы',
+    maxLength: 255,
+  })
+  @Transform(transformTrimString)
   @IsOptionalNotNull()
+  @MaxLength(255)
   @IsUrl()
   declare cdnLinkFolder: string;
 }

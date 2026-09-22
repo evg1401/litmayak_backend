@@ -6,6 +6,7 @@ import {
   Controller,
   Get,
   HttpStatus,
+  NotFoundException,
   Patch,
   Post,
   Res,
@@ -31,6 +32,31 @@ import { Actions, Subjects } from '@/common/constants/abilities.constants';
 @UseGuards(AbilitiesGuard)
 export class AuthorsController {
   constructor(private readonly authorsService: AuthorsService) {}
+
+  @ApiOperation({ summary: 'профиль автора' })
+  @Get()
+  @CheckAbilities({ action: Actions.Read, subject: Subjects.Authors })
+  async getProfile(
+    @UserLocals() { userId }: IUserLocals,
+  ): Promise<ResponseDto<Authors>> {
+    try {
+      const result = await this.authorsService.getProfile(userId);
+      if (!result) {
+        throw new NotFoundException({
+          result: null,
+          message: 'профиль автора не найден',
+        });
+      }
+
+      return { result };
+    } catch (e) {
+      if (e instanceof Error) {
+        throw new BadRequestException({ result: null, message: e.message });
+      }
+
+      throw httpExeptHandler(e);
+    }
+  }
 
   @ApiOperation({ summary: 'обновить профиль' })
   @Patch()

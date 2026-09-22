@@ -20,6 +20,11 @@ import { Users } from './users.model';
       name: 'authors_phone',
       fields: ['phone'],
     },
+    {
+      name: 'authors_nickname',
+      unique: true,
+      fields: ['nickname'],
+    },
   ],
 })
 export class Authors extends Model {

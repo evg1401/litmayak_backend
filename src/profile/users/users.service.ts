@@ -15,21 +15,31 @@ export class UsersService extends CrudService<Users> {
     super();
   }
 
-  async updateUser(userId: number, request: UpdateUserRequestDto): Promise<number> {
-    const result = await this.update(
-      { ...request },
-      { where: { id: userId } },
-    );
+  async getProfile(userId: number): Promise<Users | null> {
+    return this.getByid(userId, {
+      attributes: [
+        'fullname',
+        'phone',
+        'status',
+        'email',
+        'additionalFields',
+        'createdAt',
+      ],
+    });
+  }
+
+  async updateUser(
+    userId: number,
+    request: UpdateUserRequestDto,
+  ): Promise<number> {
+    const result = await this.update({ ...request }, { where: { id: userId } });
 
     return result[0];
   }
 
   async updateRoleByUserId(userId: number, roleId: number): Promise<number> {
     try {
-      const user = await this.update(
-        { roleId },
-        { where: { id: userId } },
-      );
+      const user = await this.update({ roleId }, { where: { id: userId } });
 
       return user[0];
     } catch (e) {
