@@ -85,22 +85,15 @@ export class UserFavoritesBookController {
   )
   async getList(
     @Query() query: QueryParamsRequestDto,
+    @UserLocals() { userId }: IUserLocals,
   ): Promise<ResponseDto<PageList<UserFavoriteBooks>>> {
     try {
-      const [total, items] = await Promise.all([
-        this.userFavoriteBooksService.countListItems(),
-        this.userFavoriteBooksService.getList(
-          ...query.buildOrderPaginationParams(),
-        ),
-      ]);
+      const result = await this.userFavoriteBooksService.getUserFavorites(
+        userId,
+        ...query.buildOrderPaginationParams(),
+      );
 
-      return {
-        result: {
-          count: items.length,
-          total,
-          items,
-        },
-      };
+      return { result };
     } catch (e) {
       if (e instanceof Error) {
         throw new BadRequestException({ result: null, message: e.message });

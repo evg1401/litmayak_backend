@@ -1,6 +1,15 @@
 import { Column, DataType, Model, Table } from 'sequelize-typescript';
 
-@Table({ tableName: 'publishing_houses' })
+@Table({
+  tableName: 'publishing_houses',
+  indexes: [
+    {
+      name: 'publishing_houses_inn_kpp_uniq',
+      unique: true,
+      fields: ['inn', 'kpp'],
+    },
+  ],
+})
 export class PublishingHouses extends Model {
   @Column({ type: DataType.STRING(255) })
   declare name: string;

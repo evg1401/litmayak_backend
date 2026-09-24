@@ -10,7 +10,16 @@ import { Books } from './books.model';
 import { CreationOptional } from 'sequelize';
 
 // средние оценки по книгам
-@Table({ tableName: 'book_reviews' })
+@Table({
+  tableName: 'book_reviews',
+  indexes: [
+    {
+      name: 'book_reviews_book_id',
+      unique: true,
+      fields: ['book_id'],
+    },
+  ],
+})
 export class BookReviews extends Model {
   declare id: CreationOptional<number>;
 

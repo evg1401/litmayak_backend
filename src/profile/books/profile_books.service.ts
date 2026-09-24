@@ -35,6 +35,7 @@ export class ProfileBooksService {
     const slug = slugConverter(request.name, { locale: 'ru', lower: true });
 
     const existingBook = await this.booksRepository.findOne({
+      attributes: ['author_id', 'slug'],
       where: { authorId: author.id, slug },
     });
     if (existingBook) throw new Error('книга с таким названием уже существует');
@@ -54,10 +55,17 @@ export class ProfileBooksService {
     const author = await this.getAuthorByUserId(userId);
 
     if (request.name) {
-      request['slug'] = slugConverter(request.name, {
-        locale: 'ru',
-        lower: true,
+      const slug = slugConverter(request.name, { locale: 'ru', lower: true });
+
+      const existingBook = await this.booksRepository.findOne({
+        attributes: ['id'],
+        where: { authorId: author.id, slug },
       });
+      if (existingBook && existingBook.id !== id) {
+        throw new Error('книга с таким названием уже существует');
+      }
+
+      request['slug'] = slug;
     }
 
     const result = await this.booksRepository.update(

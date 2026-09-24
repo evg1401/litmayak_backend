@@ -7,7 +7,16 @@ import {
 } from 'sequelize-typescript';
 import { Users } from './users.model';
 
-@Table({ tableName: 'auth_tokens' })
+@Table({
+  tableName: 'auth_tokens',
+  indexes: [
+    {
+      name: 'auth_tokens_user_id_device_uid_uniq',
+      unique: true,
+      fields: ['user_id', 'device_uid'],
+    },
+  ],
+})
 export class AuthTokens extends Model {
   declare id: number;
 

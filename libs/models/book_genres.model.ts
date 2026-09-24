@@ -7,7 +7,7 @@ export class BookGenres extends Model {
   @Column({ type: DataType.STRING(50) })
   declare name: string;
 
-  @Index
+  @Index({ unique: true })
   @Column({ type: DataType.STRING(100) })
   declare slug: string;
 

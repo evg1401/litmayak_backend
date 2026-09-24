@@ -107,22 +107,19 @@ export class AuthService {
     { phone, channel }: GenerateCodeRequestDto,
     deviceUid: string,
   ): Promise<number> {
+    const user = await this.usersRepository.findOne({
+      where: { phone },
+    });
+    if (!user) {
+      throw new Error('номер телефона не совпадает с запрошенным ранее');
+    }
+
     const authToken = await this.authTokensRepository.findOne({
-      where: { deviceUid },
+      where: { deviceUid, userId: user.id },
     });
 
     if (!authToken) {
       throw new Error('ошибка обновления кода: запросите код заново');
-    }
-
-    const user = await this.usersRepository.findOne({
-      where: { id: authToken.userId },
-    });
-
-    if (!user) {
-      throw new Error('ошибка обновления кода: запросите код заново');
-    } else if (user.phone !== phone) {
-      throw new Error('номер телефона не совпадает с запрошенным ранее');
     }
 
     if (

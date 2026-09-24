@@ -13,7 +13,18 @@ export class PublishingHousesService {
     protected publishingHousesRepository: typeof PublishingHouses,
   ) {}
 
-  async create(request: CreatePublishingHousesRequestDto) {
+  async create(
+    request: CreatePublishingHousesRequestDto,
+  ): Promise<PublishingHouses> {
+    const existingPublishingHouse =
+      await this.publishingHousesRepository.findOne({
+        attributes: ['id'],
+        where: { inn: request.inn, kpp: request.kpp },
+      });
+    if (existingPublishingHouse) {
+      throw new Error('издательский дом с такими реквизитами уже существует');
+    }
+
     return this.publishingHousesRepository.create({ ...request });
   }
 

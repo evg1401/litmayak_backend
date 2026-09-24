@@ -23,6 +23,16 @@ export class AuthorsService {
     userId: number,
     request: UpdateAuthorRequestDto,
   ): Promise<number> {
+    if (request.nickname) {
+      const existingAuthor = await this.authorsRepository.findOne({
+        attributes: ['userId'],
+        where: { nickname: request.nickname },
+      });
+
+      if (existingAuthor && existingAuthor.userId !== userId)
+        throw new Error('Никнэйм уже занят. Придумайте другой.');
+    }
+
     const result = await this.authorsRepository.update(
       { ...request },
       { where: { userId } },

@@ -1,6 +1,22 @@
-import { Column, DataType, Model, Table } from 'sequelize-typescript';
+import { Column, DataType, Index, Model, Table } from 'sequelize-typescript';
 
-@Table({ tableName: 'auth_code_events' })
+@Table({
+  tableName: 'auth_code_events',
+  indexes: [
+    {
+      name: 'auth_code_events_device_uid',
+      fields: ['device_uid'],
+    },
+    {
+      name: 'auth_code_events_phone',
+      fields: ['phone'],
+    },
+    {
+      name: 'auth_code_events_notify_type',
+      fields: ['notify_type'],
+    },
+  ],
+})
 export class AuthCodeEvents extends Model {
   declare id: number;
 

@@ -22,7 +22,7 @@ import { Users } from '@models';
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  @ApiOperation({ summary: 'профиль текущего пользователя' })
+  @ApiOperation({ summary: 'профиль пользователя' })
   @Get()
   async getProfile(
     @UserLocals() { userId }: IUserLocals,
@@ -65,9 +65,9 @@ export class UsersController {
       const result = await this.usersService.update(
         { ...request },
         { where: { id: userId } },
-      )[0];
+      );
 
-      return { result };
+      return { result: result[0] };
     } catch (e) {
       if (e instanceof Error) {
         err = e.message;

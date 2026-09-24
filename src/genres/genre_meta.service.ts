@@ -33,6 +33,7 @@ export class GenresMetaService extends CrudService<BookGenreMeta> {
     const [total, items] = await Promise.all([
       this.model.count({ where: { genreId: genre.id } }),
       this.model.findAll({
+        where: { genreId: genre.id },
         offset: getOffsetFromPage(page, limit),
         limit,
         order,

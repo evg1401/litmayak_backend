@@ -22,6 +22,7 @@ export class AuthCodeEventsService {
         deviceUid,
         notifyType,
       },
+      order: [['created_at', 'DESC']],
     });
 
     return result;
