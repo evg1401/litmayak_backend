@@ -33,3 +33,18 @@ export const FB2_DOC_MIME_TYPES: string[] = [
   'application/octet-stream',
   '',
 ];
+
+export enum EpubDocumentExtensions {
+  Epub = '.epub',
+}
+
+export const EPUB_DOC_EXT: EpubDocumentExtensions[] = Object.values(
+  EpubDocumentExtensions,
+);
+
+export const EPUB_DOC_MIME_TYPES: string[] = [
+  'application/epub+zip',
+  'application/zip',
+  'application/octet-stream',
+  '',
+];

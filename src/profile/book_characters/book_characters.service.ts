@@ -2,9 +2,8 @@ import { BookCharacters } from '@models';
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { CrudService } from 'libs/common/crud';
+import { getBookDocumentConverter } from 'libs/common/book_document_converters';
 import { Op } from 'sequelize';
-import { extname } from 'node:path';
-import { findDocumentConverter } from './converters';
 import {
   CreateBookCharactersRequestDto,
   UpdateBookCharactersRequestDto,
@@ -119,9 +118,7 @@ export class BookCharactersService extends CrudService<BookCharacters> {
     userId: number,
     documentPath: string,
   ): Promise<boolean> {
-    const converter = findDocumentConverter(
-      extname(documentPath).toLowerCase(),
-    );
+    const converter = getBookDocumentConverter(documentPath);
     if (!converter) throw new Error('формат документа не поддерживается');
 
     const author = await this.authorsService.getAuthorProfileByUserId(userId);
@@ -138,10 +135,10 @@ export class BookCharactersService extends CrudService<BookCharacters> {
     });
     if (!character) throw new Error('выбранной главы не существует');
 
-    const xhtml = await converter.convert(documentPath);
+    const xhtml = converter.sanitize(await converter.convert(documentPath));
 
-    if (!xhtml.trim()) {
-      throw new Error('документ не содержит текста');
+    if (xhtml.trim() === '') {
+      throw new Error('глава не содержит текста');
     }
 
     character.set({ xhtml });

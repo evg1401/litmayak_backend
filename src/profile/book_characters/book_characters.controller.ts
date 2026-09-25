@@ -40,7 +40,7 @@ import { DOC_MAX_SIZE_BYTES } from 'configs/documents.config';
 import {
   SUPPORT_DOC_EXT,
   SUPPORT_DOC_MIME_TYPES,
-} from './converters';
+} from 'libs/common/book_document_converters';
 
 const documentExtension = (
   file: Pick<Express.Multer.File, 'originalname'>,

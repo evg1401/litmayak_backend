@@ -3,14 +3,17 @@ import { randomUUID } from 'node:crypto';
 import { readFile, rm } from 'node:fs/promises';
 import { extname, join } from 'node:path';
 import type { initFb2File as InitFb2File } from '@lingo-reader/fb2-parser';
-import { FB2_DOC_EXT, FB2_DOC_MIME_TYPES } from '../constants';
+import { FB2_DOC_EXT, FB2_DOC_MIME_TYPES } from './constants';
 import { DocumentConverter } from './document_converter.interface';
+import { internalLinkToAnchor, sanitizeChapterHtml } from './sanitize_html';
+
+const FB2_LINK_PREFIX = 'fb2:';
 
 const importFb2Parser = async (): Promise<{
   initFb2File: typeof InitFb2File;
 }> => import('@lingo-reader/fb2-parser');
 
-// mime-типы изображений, которые fb2-parser может извлечь из fb2
+// mime изображений, которые парсер fb2 может извлечь
 const IMAGE_MIME_BY_EXT: Readonly<Record<string, string>> = {
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
@@ -69,5 +72,11 @@ export const fb2Converter: DocumentConverter = {
       fb2.destroy();
       await rm(resourceDir, { recursive: true, force: true }).catch(() => {});
     }
+  },
+
+  sanitize(html: string): string {
+    return sanitizeChapterHtml(html, {
+      a: internalLinkToAnchor(FB2_LINK_PREFIX),
+    });
   },
 };
