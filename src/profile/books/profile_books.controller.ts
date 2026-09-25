@@ -30,6 +30,7 @@ import { ResponseDto } from 'dto/response.dto';
 import type { IUserLocals } from 'libs/interfaces';
 import { CheckAbilities, UserLocals } from '@/decorators';
 import {
+  CreateBookFromFileRequestDto,
   CreateBooksRequestDto,
   UpdateBooksRequestDto,
 } from './dto/books.request.dto';
@@ -130,11 +131,21 @@ export class ProfileBooksController {
           format: 'binary',
           description: 'документ книги',
         },
+        publishingHouseId: {
+          type: 'integer',
+          description: 'id издательского дома',
+        },
       },
     },
   })
   @Post('content')
   @HttpCode(HttpStatus.CREATED)
+  @UsePipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+    }),
+  )
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({
@@ -157,6 +168,7 @@ export class ProfileBooksController {
   @CheckAbilities({ action: Actions.Create, subject: Subjects.Books })
   async createBookFromFile(
     @UploadedFile() file: Express.Multer.File | undefined,
+    @Body() request: CreateBookFromFileRequestDto,
     @UserLocals() { userId }: IUserLocals,
   ): Promise<ResponseDto<Books>> {
     try {
@@ -167,6 +179,7 @@ export class ProfileBooksController {
       const result = await this.profileBooksService.createFromFile(
         userId,
         file.path,
+        request,
       );
       return { result };
     } catch (e) {

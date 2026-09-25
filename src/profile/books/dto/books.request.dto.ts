@@ -1,4 +1,4 @@
-import { transformTrimString } from '@/helpers';
+import { transformNumValue, transformTrimString } from '@/helpers';
 import { ApiProperty } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
@@ -44,6 +44,14 @@ export class CreateBooksRequestDto {
   @MaxLength(50)
   @IsString()
   declare language: string;
+}
+
+export class CreateBookFromFileRequestDto {
+  @ApiProperty({ description: 'id издательского дома', required: false })
+  @Transform(transformNumValue)
+  @IsOptional()
+  @IsInt()
+  declare publishingHouseId?: number;
 }
 
 export class UpdateBooksRequestDto {

@@ -4,6 +4,7 @@ import { InjectModel } from '@nestjs/sequelize';
 import { Sequelize } from 'sequelize-typescript';
 import { getBookDocumentConverter } from 'libs/common/book_document_converters';
 import {
+  CreateBookFromFileRequestDto,
   CreateBooksRequestDto,
   UpdateBooksRequestDto,
 } from './dto/books.request.dto';
@@ -27,14 +28,7 @@ export class ProfileBooksService {
     const author = await this.getAuthorByUserId(userId);
 
     if (request.publishingHouseId) {
-      const existingPublishingHouses =
-        await this.publishingHousesRepository.findByPk(
-          request.publishingHouseId,
-        );
-
-      if (!existingPublishingHouses) {
-        throw new Error('указан не существующий издательский дом');
-      }
+      await this.checkPublishingHouseExists(request.publishingHouseId);
     }
 
     const slug = await this.getFreeBookSlug(author.id, request.name);
@@ -46,7 +40,11 @@ export class ProfileBooksService {
     });
   }
 
-  async createFromFile(userId: number, documentPath: string): Promise<Books> {
+  async createFromFile(
+    userId: number,
+    documentPath: string,
+    request: CreateBookFromFileRequestDto,
+  ): Promise<Books> {
     // если заголовок окажется слишком длинным
     const BOOK_NAME_MAX_LENGTH = 256;
     const CHARACTER_NAME_MAX_LENGTH = 255;
@@ -57,6 +55,10 @@ export class ProfileBooksService {
     }
 
     const author = await this.getAuthorByUserId(userId);
+
+    if (request.publishingHouseId) {
+      await this.checkPublishingHouseExists(request.publishingHouseId);
+    }
 
     const document = await converter.parseBook(documentPath);
 
@@ -78,14 +80,19 @@ export class ProfileBooksService {
 
     return this.sequelize.transaction(async (transaction) => {
       const book = await this.booksRepository.create(
-        { name, authorId: author.id, slug },
+        {
+          name,
+          authorId: author.id,
+          publishingHouseId: request.publishingHouseId,
+          slug,
+        },
         { transaction },
       );
 
       for (const [index, character] of characters.entries()) {
         await this.bookCharactersService.createBookCharacter(
           author.id,
-          { ...character, bookId: book.id, order: index + 1 },
+          { ...character, bookId: book.id, status: true, order: index + 1 },
           transaction,
         );
       }
@@ -136,6 +143,19 @@ export class ProfileBooksService {
     if (existingBook) throw new Error('книга с таким названием уже существует');
 
     return slug;
+  }
+
+  private async checkPublishingHouseExists(
+    publishingHouseId: number,
+  ): Promise<void> {
+    const existingPublishingHouse =
+      await this.publishingHousesRepository.findByPk(publishingHouseId, {
+        attributes: ['id'],
+      });
+
+    if (!existingPublishingHouse) {
+      throw new Error('указан не существующий издательский дом');
+    }
   }
 
   private async getAuthorByUserId(userId: number): Promise<Authors> {
