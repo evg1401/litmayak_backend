@@ -1,1 +1,2 @@
-export * from './middleware.inteerface'
+export * from './middleware.inteerface';
+export * from './book.interface';

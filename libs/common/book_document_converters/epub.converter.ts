@@ -1,7 +1,12 @@
-import type { EPub as EPubClass } from 'epub';
+import type { EPub as EPubClass, ManifestItem } from 'epub';
+import { buildBookCharacters } from './book_character';
 import { EPUB_DOC_EXT, EPUB_DOC_MIME_TYPES } from './constants';
-import { DocumentConverter } from './document_converter.interface';
-import { internalLinkToAnchor, sanitizeChapterHtml } from './sanitize_html';
+import {
+  DocumentBook,
+  DocumentCharacter,
+  DocumentConverter,
+} from './document_converter.interface';
+import { removeInternalLink, sanitizeCharacterHtml } from './sanitize_html';
 
 const importEpub = async (): Promise<{ EPub: typeof EPubClass }> =>
   import('epub');
@@ -35,32 +40,82 @@ const inlineManifestImages = async (
   );
 };
 
+const openEpub = async (documentPath: string): Promise<EPubClass> => {
+  const { EPub } = await importEpub();
+
+  const epub = new EPub(documentPath, IMAGE_ROOT, LINK_ROOT);
+  await epub.parse();
+
+  if (epub.hasDRM()) {
+    throw new Error('документ защищён DRM');
+  }
+
+  return epub;
+};
+
+// файлы глав в порядке чтения
+const getCharacterItems = (epub: EPubClass): ManifestItem[] =>
+  epub.flow.filter((item) => item['media-type'] === XHTML_MEDIA_TYPE);
+
+const loadCharacterHtml = async (
+  epub: EPubClass,
+  item: ManifestItem,
+): Promise<string> =>
+  inlineManifestImages(epub, await epub.getChapter(item.id));
+
+const getTocTitles = (epub: EPubClass): Map<string, string> => {
+  const titles = new Map<string, string>();
+
+  for (const { href, title } of epub.toc) {
+    const fileHref = href.split('#')[0];
+    if (title && !titles.has(fileHref)) titles.set(fileHref, title);
+  }
+
+  return titles;
+};
+
 export const epubConverter: DocumentConverter = {
   title: 'EPUB',
   extensions: EPUB_DOC_EXT,
   mimeTypes: EPUB_DOC_MIME_TYPES,
 
   async convert(documentPath: string): Promise<string> {
-    const { EPub } = await importEpub();
+    const epub = await openEpub(documentPath);
 
-    const epub = new EPub(documentPath, IMAGE_ROOT, LINK_ROOT);
-    await epub.parse();
-
-    if (epub.hasDRM()) {
-      throw new Error('документ защищён DRM');
+    const characters: string[] = [];
+    for (const item of getCharacterItems(epub)) {
+      characters.push(await loadCharacterHtml(epub, item));
     }
 
-    const chapters: string[] = [];
-    for (const item of epub.flow) {
-      if (item['media-type'] !== XHTML_MEDIA_TYPE) continue;
+    return characters.join('\n');
+  },
 
-      chapters.push(await epub.getChapter(item.id));
+  // разбор книги (файлы вне оглавления дописываются к предыдущей главе)
+  async parseBook(documentPath: string): Promise<DocumentBook> {
+    const epub = await openEpub(documentPath);
+    const tocTitles = getTocTitles(epub);
+
+    const characters: DocumentCharacter[] = [];
+    for (const item of getCharacterItems(epub)) {
+      const html = await loadCharacterHtml(epub, item);
+      const title = tocTitles.get(item.href);
+      const previous = characters.at(-1);
+
+      if (!title && previous && tocTitles.size > 0) {
+        previous.html += `\n${html}`;
+        continue;
+      }
+
+      characters.push({ name: title ?? '', html });
     }
 
-    return inlineManifestImages(epub, chapters.join('\n'));
+    return {
+      title: epub.metadata.title?.trim() ?? '',
+      characters: buildBookCharacters(characters),
+    };
   },
 
   sanitize(html: string): string {
-    return sanitizeChapterHtml(html, { a: internalLinkToAnchor(LINK_ROOT) });
+    return sanitizeCharacterHtml(html, { a: removeInternalLink(LINK_ROOT) });
   },
 };

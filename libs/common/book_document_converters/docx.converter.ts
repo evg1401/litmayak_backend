@@ -1,7 +1,7 @@
 import mammoth from 'mammoth';
 import { WORD_DOC_EXT, WORD_DOC_MIME_TYPES } from './constants';
 import { DocumentConverter } from './document_converter.interface';
-import { sanitizeChapterHtml } from './sanitize_html';
+import { sanitizeCharacterHtml } from './sanitize_html';
 
 export const docxConverter: DocumentConverter = {
   title: 'Word',
@@ -15,6 +15,6 @@ export const docxConverter: DocumentConverter = {
   },
 
   sanitize(html: string): string {
-    return sanitizeChapterHtml(html);
+    return sanitizeCharacterHtml(html);
   },
 };

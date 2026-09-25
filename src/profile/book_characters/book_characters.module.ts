@@ -6,7 +6,11 @@ import { BookCharactersService } from '@/profile/book_characters/book_characters
 import { BookCharactersController } from '@/profile/book_characters/book_characters.controller';
 import { BooksModule } from '@/books/books.module';
 import { AuthorsModule } from '../authors/authors.module';
-import { documentsConfigProvider } from 'configs/documents.config';
+import { MulterModule } from '@nestjs/platform-express';
+import {
+  characterDocumentMulterOptions,
+  documentsConfigProvider,
+} from 'configs/documents.config';
 
 @Module({
   imports: [
@@ -14,6 +18,8 @@ import { documentsConfigProvider } from 'configs/documents.config';
       envFilePath: `envs/.env`,
     }),
     SequelizeModule.forFeature([BookCharacters]),
+    // настройка лимитов загрузки файла
+    MulterModule.registerAsync(characterDocumentMulterOptions),
     BooksModule,
     AuthorsModule,
   ],

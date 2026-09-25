@@ -36,7 +36,6 @@ import { ResponseDto } from 'dto/response.dto';
 import { AbilitiesGuard } from '@/guards/abilities.guard';
 import { Actions, Subjects } from '@/common/constants/abilities.constants';
 import { AppLogger } from '@/logger/logger.service';
-import { DOC_MAX_SIZE_BYTES } from 'configs/documents.config';
 import {
   SUPPORT_DOC_EXT,
   SUPPORT_DOC_MIME_TYPES,
@@ -53,7 +52,7 @@ const isSupportedDocument = (
   SUPPORT_DOC_MIME_TYPES.includes(file.mimetype);
 
 @ApiTags('Главы')
-@Controller('profile/books/characters')
+@Controller('profile/books/:bookId/characters')
 @UseGuards(AbilitiesGuard)
 export class BookCharactersController {
   constructor(
@@ -73,13 +72,20 @@ export class BookCharactersController {
   )
   @CheckAbilities({ action: Actions.Create, subject: Subjects.BookCharacters })
   async createCharacter(
+    @Param('bookId') bookIdStr: string,
     @Body()
     request: CreateBookCharactersRequestDto,
     @UserLocals() { userId }: IUserLocals,
   ): Promise<ResponseDto<number>> {
     try {
+      const bookId = parseInt(bookIdStr, 10);
+      if (Number.isNaN(bookId)) {
+        throw new Error('Произошла ошибка при обработке запроса');
+      }
+
       const result = await this.bookCharactersService.createCharacter(
         userId,
+        bookId,
         request,
       );
 
@@ -97,16 +103,22 @@ export class BookCharactersController {
   @Get(':id')
   @CheckAbilities({ action: Actions.Read, subject: Subjects.BookCharacters })
   async getCharacter(
+    @Param('bookId') bookIdStr: string,
     @Param('id') idStr: string,
     @UserLocals() { userId }: IUserLocals,
   ): Promise<ResponseDto<BookCharacters>> {
     try {
       const id = parseInt(idStr, 10);
-      if (Number.isNaN(id)) {
+      const bookId = parseInt(bookIdStr, 10);
+      if (Number.isNaN(id) || Number.isNaN(bookId)) {
         throw new Error('Произошла ошибка при обработке запроса');
       }
 
-      const result = await this.bookCharactersService.getCharacter(id, userId);
+      const result = await this.bookCharactersService.getCharacter(
+        id,
+        bookId,
+        userId,
+      );
 
       return { result };
     } catch (e) {
@@ -128,6 +140,7 @@ export class BookCharactersController {
   )
   @CheckAbilities({ action: Actions.Update, subject: Subjects.BookCharacters })
   async updateCharacter(
+    @Param('bookId') bookIdStr: string,
     @Param('id') idStr: string,
     @Body()
     request: UpdateBookCharactersRequestDto,
@@ -135,12 +148,14 @@ export class BookCharactersController {
   ): Promise<ResponseDto<number>> {
     try {
       const id = parseInt(idStr, 10);
-      if (Number.isNaN(id)) {
+      const bookId = parseInt(bookIdStr, 10);
+      if (Number.isNaN(id) || Number.isNaN(bookId)) {
         throw new Error('Произошла ошибка при обработке запроса');
       }
 
       const result = await this.bookCharactersService.updateCharacter(
         id,
+        bookId,
         userId,
         request,
       );
@@ -178,7 +193,6 @@ export class BookCharactersController {
         filename: (_, file, callback) =>
           callback(null, `${randomUUID()}${documentExtension(file)}`),
       }),
-      limits: { fileSize: DOC_MAX_SIZE_BYTES, files: 1 },
       fileFilter: (_, file, callback) =>
         isSupportedDocument(file)
           ? callback(null, true)
@@ -193,13 +207,15 @@ export class BookCharactersController {
   )
   @CheckAbilities({ action: Actions.Update, subject: Subjects.BookCharacters })
   async updateCharacterContent(
+    @Param('bookId') bookIdStr: string,
     @Param('id') idStr: string,
     @UploadedFile() file: Express.Multer.File | undefined,
     @UserLocals() { userId }: IUserLocals,
   ): Promise<ResponseDto<boolean>> {
     try {
       const id = parseInt(idStr, 10);
-      if (Number.isNaN(id)) {
+      const bookId = parseInt(bookIdStr, 10);
+      if (Number.isNaN(id) || Number.isNaN(bookId)) {
         throw new Error('Произошла ошибка при обработке запроса');
       }
 
@@ -209,6 +225,7 @@ export class BookCharactersController {
 
       const result = await this.bookCharactersService.updateCharacterContent(
         id,
+        bookId,
         userId,
         file.path,
       );
@@ -236,17 +253,20 @@ export class BookCharactersController {
   @Delete(':id')
   @CheckAbilities({ action: Actions.Delete, subject: Subjects.BookCharacters })
   async deleteCharacter(
+    @Param('bookId') bookIdStr: string,
     @Param('id') idStr: string,
     @UserLocals() { userId }: IUserLocals,
   ): Promise<ResponseDto<number>> {
     try {
       const id = parseInt(idStr, 10);
-      if (Number.isNaN(id)) {
+      const bookId = parseInt(bookIdStr, 10);
+      if (Number.isNaN(id) || Number.isNaN(bookId)) {
         throw new Error('Произошла ошибка при обработке запроса');
       }
 
       const result = await this.bookCharactersService.deleteCharacter(
         id,
+        bookId,
         userId,
       );
 

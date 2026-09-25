@@ -13,10 +13,6 @@ import {
 } from 'class-validator';
 
 export class CreateBookCharactersRequestDto {
-  @ApiProperty({ description: 'id книги', required: true })
-  @IsInt()
-  declare bookId: number;
-
   @ApiProperty({ description: 'статус публикации' })
   @IsOptional()
   @IsBoolean()

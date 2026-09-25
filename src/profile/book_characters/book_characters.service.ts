@@ -2,14 +2,19 @@ import { BookCharacters } from '@models';
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { CrudService } from 'libs/common/crud';
-import { getBookDocumentConverter } from 'libs/common/book_document_converters';
-import { Op } from 'sequelize';
+import {
+  DocumentConverter,
+  getBookDocumentConverter,
+  htmlToText,
+} from 'libs/common/book_document_converters';
+import { Op, Transaction } from 'sequelize';
 import {
   CreateBookCharactersRequestDto,
   UpdateBookCharactersRequestDto,
 } from './dto/book_characters.request.dto';
 import { BooksService } from '@/books/books.service';
 import { AuthorsService } from '@/profile/authors/authors.service';
+import { BookCharacter } from 'libs/interfaces';
 
 @Injectable()
 export class BookCharactersService extends CrudService<BookCharacters> {
@@ -24,44 +29,66 @@ export class BookCharactersService extends CrudService<BookCharacters> {
 
   async createCharacter(
     userId: number,
+    bookId: number,
     request: CreateBookCharactersRequestDto,
   ) {
     const author = await this.authorsService.getAuthorProfileByUserId(userId);
     if (!author) throw new Error('пока вы не являетесь автором');
 
-    const existingBook = await this.booksService.getByid(request.bookId, {
+    const result = await this.createBookCharacter(author.id, {
+      ...request,
+      bookId,
+    });
+
+    return result.id;
+  }
+
+  async createBookCharacter(
+    authorId: number,
+    character: BookCharacter,
+    transaction?: Transaction,
+  ): Promise<BookCharacters> {
+    const existingBook = await this.booksService.getByid(character.bookId, {
       include: {
         association: 'author',
         attributes: ['id'],
-        where: { id: author.id },
+        where: { id: authorId },
         required: true,
       },
+      transaction,
     });
     if (!existingBook) {
       throw new Error('выбранная книга не существет');
     }
 
     const currentCharacter = await this.getItem({
-      where: { name: request.name, bookId: existingBook.id },
+      where: { name: character.name, bookId: existingBook.id },
+      transaction,
     });
 
     if (currentCharacter) {
       throw new Error('глава с таким названием уже существует');
     }
 
-    const result = await this.model.create({
-      ...request,
-      order: request.order ?? 100,
-    });
-
-    return result.id;
+    return this.model.create(
+      {
+        ...character,
+        order: character.order ?? 100,
+      },
+      { transaction },
+    );
   }
 
-  async getCharacter(id: number, userId: number): Promise<BookCharacters> {
+  async getCharacter(
+    id: number,
+    bookId: number,
+    userId: number,
+  ): Promise<BookCharacters> {
     const author = await this.authorsService.getAuthorProfileByUserId(userId);
     if (!author) throw new Error('вы не являетесь автором');
 
-    const character = await this.model.findByPk(id, {
+    const character = await this.model.findOne({
+      where: { id, bookId },
       include: {
         association: 'book',
         attributes: ['id'],
@@ -76,13 +103,15 @@ export class BookCharactersService extends CrudService<BookCharacters> {
 
   async updateCharacter(
     id: number,
+    bookId: number,
     userId: number,
     request: UpdateBookCharactersRequestDto,
   ): Promise<number> {
     const author = await this.authorsService.getAuthorProfileByUserId(userId);
     if (!author) throw new Error('вы не являетесь автором');
 
-    const character = await this.model.findByPk(id, {
+    const character = await this.model.findOne({
+      where: { id, bookId },
       include: {
         association: 'book',
         attributes: ['id', 'authorId'],
@@ -115,6 +144,7 @@ export class BookCharactersService extends CrudService<BookCharacters> {
 
   async updateCharacterContent(
     id: number,
+    bookId: number,
     userId: number,
     documentPath: string,
   ): Promise<boolean> {
@@ -124,7 +154,8 @@ export class BookCharactersService extends CrudService<BookCharacters> {
     const author = await this.authorsService.getAuthorProfileByUserId(userId);
     if (!author) throw new Error('вы не являетесь автором');
 
-    const character = await this.model.findByPk(id, {
+    const character = await this.model.findOne({
+      where: { id, bookId },
       attributes: ['id'],
       include: {
         association: 'book',
@@ -135,11 +166,10 @@ export class BookCharactersService extends CrudService<BookCharacters> {
     });
     if (!character) throw new Error('выбранной главы не существует');
 
-    const xhtml = converter.sanitize(await converter.convert(documentPath));
-
-    if (xhtml.trim() === '') {
-      throw new Error('глава не содержит текста');
-    }
+    const xhtml = this.toCharacterXhtml(
+      converter,
+      await converter.convert(documentPath),
+    );
 
     character.set({ xhtml });
     await character.save();
@@ -147,11 +177,27 @@ export class BookCharactersService extends CrudService<BookCharacters> {
     return true;
   }
 
-  async deleteCharacter(id: number, userId: number): Promise<number> {
+  // обработка html главы
+  toCharacterXhtml(converter: DocumentConverter, html: string): string {
+    const xhtml = converter.sanitize(html);
+
+    if (!htmlToText(xhtml)) {
+      throw new Error('глава не содержит текста');
+    }
+
+    return xhtml;
+  }
+
+  async deleteCharacter(
+    id: number,
+    bookId: number,
+    userId: number,
+  ): Promise<number> {
     const author = await this.authorsService.getAuthorProfileByUserId(userId);
     if (!author) throw new Error('вы не являетесь автором');
 
-    const character = await this.model.findByPk(id, {
+    const character = await this.model.findOne({
+      where: { id, bookId },
       attributes: ['id'],
       include: {
         association: 'book',

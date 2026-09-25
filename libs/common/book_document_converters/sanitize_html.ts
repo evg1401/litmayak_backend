@@ -1,7 +1,7 @@
 import sanitizeHtml, { IOptions, Transformer } from 'sanitize-html';
 
 // общие правила очистки html главы
-const CHAPTER_SANITIZE_OPTIONS: IOptions = {
+const CHARACTER_SANITIZE_OPTIONS: IOptions = {
   allowedTags: [...sanitizeHtml.defaults.allowedTags, 'img'],
   allowedAttributes: {
     '*': ['id'],
@@ -18,23 +18,36 @@ const CHAPTER_SANITIZE_OPTIONS: IOptions = {
   exclusiveFilter: (frame) => frame.tag === 'img' && !frame.attribs.src,
 };
 
-export const sanitizeChapterHtml = (
+export const sanitizeCharacterHtml = (
   html: string,
   transformTags?: IOptions['transformTags'],
-): string => sanitizeHtml(html, { ...CHAPTER_SANITIZE_OPTIONS, transformTags });
+): string =>
+  sanitizeHtml(html, { ...CHARACTER_SANITIZE_OPTIONS, transformTags });
 
-// превращает ссылки между главами документа в якоря
-export const internalLinkToAnchor =
+const BLOCK_TAG_REGEXP = /<\/?(p|div|br|h[1-6]|li|tr|td|th)\b/gi;
+
+const decodeEscapedText = (text: string): string =>
+  text
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, '&');
+
+export const htmlToText = (html: string): string =>
+  decodeEscapedText(
+    sanitizeHtml(html.replace(BLOCK_TAG_REGEXP, ' $&'), {
+      allowedTags: [],
+      allowedAttributes: {},
+    }),
+  )
+    .replace(/\s+/g, ' ')
+    .trim();
+
+// очистка ссылок из текста
+export const removeInternalLink =
   (prefix: string): Transformer =>
   (tagName, attribs) => {
     const { href, ...rest } = attribs;
-    if (!href?.startsWith(prefix)) return { tagName, attribs };
 
-    const anchorIndex = href.indexOf('#');
-
-    return {
-      tagName,
-      attribs:
-        anchorIndex === -1 ? rest : { ...rest, href: href.slice(anchorIndex) },
-    };
+    return { tagName, attribs: href?.startsWith(prefix) ? rest : attribs };
   };
