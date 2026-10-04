@@ -29,7 +29,6 @@ export class MaxJsonSizeValidation implements ValidatorConstraintInterface {
   }
 }
 
-// Фабрика с параметрами
 export function MaxJsonSize(maxBytes: number, options?: ValidationOptions) {
   return function (object: object, propertyName: string) {
     registerDecorator({

@@ -40,6 +40,10 @@ export const validPhoneDeep = (phone: string): boolean => {
     /^7987654321/,
   ];
 
+  if (!/^7\d{10}$/.test(phone)) {
+    return false;
+  }
+
   let isValid = true;
 
   patterns.forEach((pattern) => {

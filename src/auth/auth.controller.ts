@@ -5,25 +5,36 @@ import {
   Get,
   Inject,
   Post,
+  Query,
   Req,
   Res,
   UnauthorizedException,
+  UseGuards,
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
+import { ThrottlerGuard } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import {
+  AuthEmailCheckDto,
   AuthGenerateCodeDto,
   AuthLogoutDto,
+  AuthNicknameSuggestDto,
   AuthRefreshTokenDto,
   AuthSignInDto,
 } from './dto/auth.response.dto';
 import {
+  CheckEmailRequestDto,
   GenerateCodeRequestDto,
   SignInCodeRequestDto,
+  SuggestNicknameRequestDto,
 } from './dto/auth.request.dto';
 import { DeviceUid } from '@/decorators';
-import { httpExeptHandler, setCookie } from '@/helpers/http.helper';
+import {
+  getErrorMessage,
+  httpExeptHandler,
+  setCookie,
+} from '@/helpers/http.helper';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { AuthOpts } from 'configs/jwt.config';
 import { API_GLOBAL_PREFIX } from 'configs/api.config';
@@ -41,11 +52,11 @@ export class AuthController {
 
   @ApiOperation({ summary: 'получить код' })
   @Post('code/generate')
+  @UseGuards(ThrottlerGuard)
   @UsePipes(
     new ValidationPipe({
       transform: false,
       whitelist: true,
-      skipNullProperties: true,
     }),
   )
   async generateAuthCode(
@@ -71,7 +82,10 @@ export class AuthController {
     } catch (e) {
       if (e instanceof Error) {
         err = e.message;
-        throw new BadRequestException({ result: null, message: e.message });
+        throw new BadRequestException({
+          result: null,
+          message: getErrorMessage(e),
+        });
       }
 
       err = JSON.stringify(e);
@@ -83,7 +97,7 @@ export class AuthController {
       }
 
       await this.authCodeEventsService.updateStatusAuthLog(
-        request.phone,
+        request.phone ?? request.email ?? '',
         deviceUid,
         status,
         err,
@@ -91,13 +105,60 @@ export class AuthController {
     }
   }
 
+  @ApiOperation({ summary: 'проверить доступность email для регистрации' })
+  @Get('email/check')
+  @UseGuards(ThrottlerGuard)
+  @UsePipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+    }),
+  )
+  async checkEmail(
+    @Query() { email }: CheckEmailRequestDto,
+    @DeviceUid() deviceUid: string,
+  ): Promise<AuthEmailCheckDto> {
+    if (!deviceUid) {
+      throw new BadRequestException(
+        'Отсутствует идентификатор клиентского приложения',
+      );
+    }
+
+    const available = await this.authService.checkEmailAvailability(email);
+
+    return { result: { available } };
+  }
+
+  @ApiOperation({ summary: 'подобрать свободный никнейм по имени' })
+  @Get('nickname/suggest')
+  @UsePipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+    }),
+  )
+  async suggestNickname(
+    @Query() { name }: SuggestNicknameRequestDto,
+    @DeviceUid() deviceUid: string,
+  ): Promise<AuthNicknameSuggestDto> {
+    if (!deviceUid) {
+      throw new BadRequestException(
+        'Отсутствует идентификатор клиентского приложения',
+      );
+    }
+
+    const nickname = await this.authService.suggestNickname(name);
+
+    return { result: { nickname } };
+  }
+
   @ApiOperation({ summary: 'обновить код' })
   @Post('code/refresh')
+  @UseGuards(ThrottlerGuard)
   @UsePipes(
     new ValidationPipe({
       transform: false,
       whitelist: true,
-      skipNullProperties: true,
     }),
   )
   @Post()
@@ -115,20 +176,16 @@ export class AuthController {
         );
       }
 
-      await this.authCodeEventsService.AddAuthLog({
-        phone: request.phone,
-        deviceUid,
-        notifyType: request.channel,
-        eventType: 'refresh_code',
-        status: AuthLogPending.Pending,
-      });
-
       const result = await this.authService.refreshAuthCode(request, deviceUid);
+
       return { result };
     } catch (e) {
       if (e instanceof Error) {
         err = e.message;
-        throw new BadRequestException({ result: null, message: e.message });
+        throw new BadRequestException({
+          result: null,
+          message: getErrorMessage(e),
+        });
       }
 
       throw httpExeptHandler(e);
@@ -139,7 +196,7 @@ export class AuthController {
       }
 
       await this.authCodeEventsService.updateStatusAuthLog(
-        request.phone,
+        request.phone ?? request.email ?? '',
         deviceUid,
         status,
         err,
@@ -149,11 +206,11 @@ export class AuthController {
 
   @ApiOperation({ summary: 'авторизация по коду' })
   @Post('code/signin')
+  @UseGuards(ThrottlerGuard)
   @UsePipes(
     new ValidationPipe({
       transform: false,
       whitelist: true,
-      skipNullProperties: true,
     }),
   )
   async signInCode(
@@ -176,7 +233,10 @@ export class AuthController {
       return { result: { access: result.access } };
     } catch (e) {
       if (e instanceof Error) {
-        throw new BadRequestException({ result: null, message: e.message });
+        throw new BadRequestException({
+          result: null,
+          message: getErrorMessage(e),
+        });
       }
 
       throw httpExeptHandler(e);
@@ -215,7 +275,10 @@ export class AuthController {
       return { result: { access: result.access } };
     } catch (e) {
       if (e instanceof Error) {
-        throw new BadRequestException({ result: null, message: e.message });
+        throw new BadRequestException({
+          result: null,
+          message: getErrorMessage(e),
+        });
       }
 
       throw httpExeptHandler(e);
@@ -237,7 +300,10 @@ export class AuthController {
       return { result };
     } catch (e) {
       if (e instanceof Error) {
-        throw new BadRequestException({ result: null, message: e.message });
+        throw new BadRequestException({
+          result: null,
+          message: getErrorMessage(e),
+        });
       }
 
       throw httpExeptHandler(e);

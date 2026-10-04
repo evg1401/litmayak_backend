@@ -1,4 +1,4 @@
-import { Books, UserFavoriteBooks } from '@models';
+import { Authors, BookReviews, Books, UserFavoriteBooks } from '@models';
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { CrudService } from 'libs/common/crud';
@@ -53,6 +53,46 @@ export class UserFavoriteBooksService extends CrudService<UserFavoriteBooks> {
           include: this.validateAttrs(attrs),
           exclude: ['userId', 'updatedAt'],
         },
+        include: [
+          {
+            model: Books,
+            attributes: {
+              exclude: [
+                'id',
+                'authorId',
+                'userId',
+                'status',
+                'checkStatus',
+                'createdAt',
+                'updatedAt',
+              ],
+            },
+            include: [
+              {
+                model: Authors,
+                attributes: {
+                  exclude: [
+                    'id',
+                    'userId',
+                    'email',
+                    'phone',
+                    'status',
+                    'level',
+                    'verificationStatus',
+                    'createdAt',
+                    'updatedAt',
+                  ],
+                },
+              },
+              {
+                model: BookReviews,
+                attributes: {
+                  exclude: ['id', 'bookId', 'createdAt', 'updatedAt'],
+                },
+              },
+            ],
+          },
+        ],
       }),
     ]);
 

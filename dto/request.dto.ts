@@ -1,16 +1,36 @@
 import { transformOrderListValue, transformQueryAttrsValue } from '@/helpers';
 import { ApiProperty } from '@nestjs/swagger';
-import { Transform } from 'class-transformer';
-import { IsArray, IsOptional, IsString } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
+import {
+  IsArray,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+} from 'class-validator';
 import { Order } from 'sequelize';
 
+export const PAGE_LIMIT_MAX = 100;
+
 export class QueryParamsRequestDto {
-  @ApiProperty({ description: 'страница' })
+  @ApiProperty({ description: 'страница', minimum: 1 })
   @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
   declare page?: number;
 
-  @ApiProperty({ description: 'лимит объектов списка' })
+  @ApiProperty({
+    description: 'лимит объектов списка',
+    minimum: 1,
+    maximum: PAGE_LIMIT_MAX,
+  })
   @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(PAGE_LIMIT_MAX)
   declare limit?: number;
 
   @ApiProperty({ description: 'атрибуты элементов списка' })

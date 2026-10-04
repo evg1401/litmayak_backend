@@ -1,4 +1,5 @@
 import { Column, DataType, Model, Table } from 'sequelize-typescript';
+import { toMediaUrls } from 'configs/media.config';
 
 @Table({
   tableName: 'publishing_houses',
@@ -26,7 +27,12 @@ export class PublishingHouses extends Model {
   @Column({ type: DataType.STRING(150) })
   declare email: string;
 
-  @Column({ type: DataType.JSONB })
+  @Column({
+    type: DataType.JSONB,
+    get(this: PublishingHouses) {
+      return toMediaUrls(this.getDataValue('images'));
+    },
+  })
   declare images: string[];
 
   @Column({ type: DataType.STRING(50) })

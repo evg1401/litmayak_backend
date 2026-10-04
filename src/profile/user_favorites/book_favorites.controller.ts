@@ -1,4 +1,4 @@
-import { httpExeptHandler } from '@/helpers';
+import { getErrorMessage, httpExeptHandler } from '@/helpers';
 import { UserFavoriteBooks } from '@models';
 import {
   BadRequestException,
@@ -44,7 +44,7 @@ export class UserFavoritesBookController {
       return { result };
     } catch (e) {
       if (e instanceof Error) {
-        throw new BadRequestException({ result: null, message: e.message });
+        throw new BadRequestException({ result: null, message: getErrorMessage(e) });
       }
 
       throw httpExeptHandler(e);
@@ -67,7 +67,7 @@ export class UserFavoritesBookController {
       return { result };
     } catch (e) {
       if (e instanceof Error) {
-        throw new BadRequestException({ result: null, message: e.message });
+        throw new BadRequestException({ result: null, message: getErrorMessage(e) });
       }
 
       throw httpExeptHandler(e);
@@ -80,7 +80,6 @@ export class UserFavoritesBookController {
     new ValidationPipe({
       transform: true,
       whitelist: true,
-      skipNullProperties: true,
     }),
   )
   async getList(
@@ -96,7 +95,7 @@ export class UserFavoritesBookController {
       return { result };
     } catch (e) {
       if (e instanceof Error) {
-        throw new BadRequestException({ result: null, message: e.message });
+        throw new BadRequestException({ result: null, message: getErrorMessage(e) });
       }
 
       throw httpExeptHandler(e);

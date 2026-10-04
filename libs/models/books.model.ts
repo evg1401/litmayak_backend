@@ -3,6 +3,7 @@ import {
   Column,
   DataType,
   ForeignKey,
+  HasMany,
   HasOne,
   Model,
   Table,
@@ -10,6 +11,9 @@ import {
 import { Authors } from './authors.model';
 import { PublishingHouses } from './publishing_houses.model';
 import { BookReviews } from '@models';
+import { BookCharacters } from './book_characters.model';
+import { BookGenreMeta } from './book_genre_meta.model';
+import { toMediaUrls } from 'configs/media.config';
 
 @Table({
   tableName: 'books',
@@ -40,7 +44,12 @@ export class Books extends Model {
   @Column({ type: DataType.STRING(256) })
   declare name: string;
 
-  @Column({ type: DataType.JSONB })
+  @Column({
+    type: DataType.JSONB,
+    get(this: Books) {
+      return toMediaUrls(this.getDataValue('images'));
+    },
+  })
   declare images: string[];
 
   @Column({ type: DataType.STRING(256) })
@@ -77,4 +86,10 @@ export class Books extends Model {
     foreignKey: 'bookId',
   })
   declare review: BookReviews;
+
+  @HasMany(() => BookCharacters)
+  declare characters: BookCharacters[];
+
+  @HasMany(() => BookGenreMeta)
+  declare genreMeta: BookGenreMeta[];
 }

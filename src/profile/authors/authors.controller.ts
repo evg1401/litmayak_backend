@@ -18,7 +18,7 @@ import {
   CreateAuthorRequestDto,
   UpdateAuthorRequestDto,
 } from './dto/authors.request.dto';
-import { httpExeptHandler } from '@/helpers';
+import { getErrorMessage, httpExeptHandler } from '@/helpers';
 import { ResponseDto } from 'dto/response.dto';
 import type { IUserLocals } from 'libs/interfaces';
 import { CheckAbilities, UserLocals } from '@/decorators';
@@ -51,7 +51,7 @@ export class AuthorsController {
       return { result };
     } catch (e) {
       if (e instanceof Error) {
-        throw new BadRequestException({ result: null, message: e.message });
+        throw new BadRequestException({ result: null, message: getErrorMessage(e) });
       }
 
       throw httpExeptHandler(e);
@@ -64,7 +64,6 @@ export class AuthorsController {
     new ValidationPipe({
       transform: false,
       whitelist: true,
-      skipNullProperties: true,
     }),
   )
   @CheckAbilities({ action: Actions.Update, subject: Subjects.Authors })
@@ -81,7 +80,7 @@ export class AuthorsController {
     } catch (e) {
       if (e instanceof Error) {
         err = e.message;
-        throw new BadRequestException({ result: null, message: e.message });
+        throw new BadRequestException({ result: null, message: getErrorMessage(e) });
       }
 
       err = JSON.stringify(e);
@@ -95,7 +94,6 @@ export class AuthorsController {
     new ValidationPipe({
       transform: false,
       whitelist: true,
-      skipNullProperties: true,
     }),
   )
   @CheckAbilities({ action: Actions.Create, subject: Subjects.Authors })
@@ -115,7 +113,7 @@ export class AuthorsController {
     } catch (e) {
       if (e instanceof Error) {
         err = e.message;
-        throw new BadRequestException({ result: null, message: e.message });
+        throw new BadRequestException({ result: null, message: getErrorMessage(e) });
       }
 
       err = JSON.stringify(e);
@@ -138,7 +136,7 @@ export class AuthorsController {
     } catch (e) {
       if (e instanceof Error) {
         err = e.message;
-        throw new BadRequestException({ result: null, message: e.message });
+        throw new BadRequestException({ result: null, message: getErrorMessage(e) });
       }
 
       err = JSON.stringify(e);

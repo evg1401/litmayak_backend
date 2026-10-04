@@ -1,3 +1,5 @@
+import { col, fn, where } from 'sequelize';
+
 export const isTimeOver = (tiemSec: number, intervalSec: number) => {
   const now = Date.now();
   return now - tiemSec < intervalSec * 1000;
@@ -13,3 +15,6 @@ export const getOffsetFromPage = (page: number, limit: number) => {
 
   return (page - 1) * limit;
 };
+
+export const whereEmailIgnoreCase = (email: string) =>
+  where(fn('lower', col('email')), email.trim().toLowerCase());

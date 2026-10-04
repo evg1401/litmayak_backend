@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { SequelizeModule } from '@nestjs/sequelize';
-import { AuthCodeEvents, AuthTokens, Users, Roles } from '@models';
+import { AuthCodeEvents, AuthTokens, Authors, Users, Roles } from '@models';
 import { AuthCodeEventsService } from './auth_code_events.service';
 import { NotificationsModule } from '@/notifications/notifications.module';
 import { ConfigModule } from '@nestjs/config';
@@ -13,7 +13,7 @@ import { authConfigProvider } from 'configs/jwt.config';
     ConfigModule.forRoot({
       envFilePath: `envs/.env`,
     }),
-    SequelizeModule.forFeature([AuthCodeEvents, Users, AuthTokens, Roles]),
+    SequelizeModule.forFeature([AuthCodeEvents, Users, AuthTokens, Roles, Authors]),
     NotificationsModule,
   ],
   controllers: [AuthController],

@@ -10,6 +10,7 @@ import {
   Patch,
   Post,
   Put,
+  Query,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -26,20 +27,23 @@ import { tmpdir } from 'node:os';
 import { extname } from 'node:path';
 import { BookCharactersService } from '@/profile/book_characters/book_characters.service';
 import { CheckAbilities, UserLocals } from '@/decorators';
-import { httpExeptHandler } from '@/helpers';
+import { getErrorMessage, httpExeptHandler } from '@/helpers';
 import type { IUserLocals } from 'libs/interfaces';
 import {
   CreateBookCharactersRequestDto,
+  GetBookCharactersRequestDto,
+  PublishDraftCharactersRequestDto,
   UpdateBookCharactersRequestDto,
 } from './dto/book_characters.request.dto';
 import { ResponseDto } from 'dto/response.dto';
+import type { ChapterListItem } from '@/profile/book_characters/book_characters.service';
 import { AbilitiesGuard } from '@/guards/abilities.guard';
 import { Actions, Subjects } from '@/common/constants/abilities.constants';
 import { AppLogger } from '@/logger/logger.service';
 import {
   SUPPORT_DOC_EXT,
   SUPPORT_DOC_MIME_TYPES,
-} from 'libs/common/book_document_converters';
+} from './converters';
 
 const documentExtension = (
   file: Pick<Express.Multer.File, 'originalname'>,
@@ -52,13 +56,71 @@ const isSupportedDocument = (
   SUPPORT_DOC_MIME_TYPES.includes(file.mimetype);
 
 @ApiTags('Главы')
-@Controller('profile/books/:bookId/characters')
+@Controller('profile/books/characters')
 @UseGuards(AbilitiesGuard)
 export class BookCharactersController {
   constructor(
     private readonly bookCharactersService: BookCharactersService,
     private readonly logger: AppLogger,
   ) {}
+
+  @ApiOperation({ summary: 'главы книги (вкладка «Редактор»)' })
+  @Get()
+  @UsePipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+    }),
+  )
+  @CheckAbilities({ action: Actions.Read, subject: Subjects.BookCharacters })
+  async getBookCharacters(
+    @Query() query: GetBookCharactersRequestDto,
+    @UserLocals() { userId }: IUserLocals,
+  ): Promise<ResponseDto<ChapterListItem[]>> {
+    try {
+      const result = await this.bookCharactersService.getBookCharacters(
+        query.bookId,
+        userId,
+      );
+
+      return { result };
+    } catch (e) {
+      if (e instanceof Error) {
+        throw new BadRequestException({ result: null, message: getErrorMessage(e) });
+      }
+
+      throw httpExeptHandler(e);
+    }
+  }
+
+  @ApiOperation({ summary: 'опубликовать все черновики книги' })
+  @Post('publish-drafts')
+  @UsePipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+    }),
+  )
+  @CheckAbilities({ action: Actions.Update, subject: Subjects.BookCharacters })
+  async publishDraftCharacters(
+    @Body() request: PublishDraftCharactersRequestDto,
+    @UserLocals() { userId }: IUserLocals,
+  ): Promise<ResponseDto<number>> {
+    try {
+      const result = await this.bookCharactersService.publishDraftCharacters(
+        request.bookId,
+        userId,
+      );
+
+      return { result };
+    } catch (e) {
+      if (e instanceof Error) {
+        throw new BadRequestException({ result: null, message: getErrorMessage(e) });
+      }
+
+      throw httpExeptHandler(e);
+    }
+  }
 
   @ApiOperation({ summary: 'создать главу' })
   @Post()
@@ -67,32 +129,24 @@ export class BookCharactersController {
     new ValidationPipe({
       transform: true,
       whitelist: true,
-      skipNullProperties: true,
     }),
   )
   @CheckAbilities({ action: Actions.Create, subject: Subjects.BookCharacters })
   async createCharacter(
-    @Param('bookId') bookIdStr: string,
     @Body()
     request: CreateBookCharactersRequestDto,
     @UserLocals() { userId }: IUserLocals,
   ): Promise<ResponseDto<number>> {
     try {
-      const bookId = parseInt(bookIdStr, 10);
-      if (Number.isNaN(bookId)) {
-        throw new Error('Произошла ошибка при обработке запроса');
-      }
-
       const result = await this.bookCharactersService.createCharacter(
         userId,
-        bookId,
         request,
       );
 
       return { result };
     } catch (e) {
       if (e instanceof Error) {
-        throw new BadRequestException({ result: null, message: e.message });
+        throw new BadRequestException({ result: null, message: getErrorMessage(e) });
       }
 
       throw httpExeptHandler(e);
@@ -103,27 +157,21 @@ export class BookCharactersController {
   @Get(':id')
   @CheckAbilities({ action: Actions.Read, subject: Subjects.BookCharacters })
   async getCharacter(
-    @Param('bookId') bookIdStr: string,
     @Param('id') idStr: string,
     @UserLocals() { userId }: IUserLocals,
   ): Promise<ResponseDto<BookCharacters>> {
     try {
       const id = parseInt(idStr, 10);
-      const bookId = parseInt(bookIdStr, 10);
-      if (Number.isNaN(id) || Number.isNaN(bookId)) {
+      if (Number.isNaN(id)) {
         throw new Error('Произошла ошибка при обработке запроса');
       }
 
-      const result = await this.bookCharactersService.getCharacter(
-        id,
-        bookId,
-        userId,
-      );
+      const result = await this.bookCharactersService.getCharacter(id, userId);
 
       return { result };
     } catch (e) {
       if (e instanceof Error) {
-        throw new BadRequestException({ result: null, message: e.message });
+        throw new BadRequestException({ result: null, message: getErrorMessage(e) });
       }
 
       throw httpExeptHandler(e);
@@ -140,7 +188,6 @@ export class BookCharactersController {
   )
   @CheckAbilities({ action: Actions.Update, subject: Subjects.BookCharacters })
   async updateCharacter(
-    @Param('bookId') bookIdStr: string,
     @Param('id') idStr: string,
     @Body()
     request: UpdateBookCharactersRequestDto,
@@ -148,14 +195,12 @@ export class BookCharactersController {
   ): Promise<ResponseDto<number>> {
     try {
       const id = parseInt(idStr, 10);
-      const bookId = parseInt(bookIdStr, 10);
-      if (Number.isNaN(id) || Number.isNaN(bookId)) {
+      if (Number.isNaN(id)) {
         throw new Error('Произошла ошибка при обработке запроса');
       }
 
       const result = await this.bookCharactersService.updateCharacter(
         id,
-        bookId,
         userId,
         request,
       );
@@ -163,7 +208,7 @@ export class BookCharactersController {
       return { result };
     } catch (e) {
       if (e instanceof Error) {
-        throw new BadRequestException({ result: null, message: e.message });
+        throw new BadRequestException({ result: null, message: getErrorMessage(e) });
       }
 
       throw httpExeptHandler(e);
@@ -207,15 +252,13 @@ export class BookCharactersController {
   )
   @CheckAbilities({ action: Actions.Update, subject: Subjects.BookCharacters })
   async updateCharacterContent(
-    @Param('bookId') bookIdStr: string,
     @Param('id') idStr: string,
     @UploadedFile() file: Express.Multer.File | undefined,
     @UserLocals() { userId }: IUserLocals,
   ): Promise<ResponseDto<boolean>> {
     try {
       const id = parseInt(idStr, 10);
-      const bookId = parseInt(bookIdStr, 10);
-      if (Number.isNaN(id) || Number.isNaN(bookId)) {
+      if (Number.isNaN(id)) {
         throw new Error('Произошла ошибка при обработке запроса');
       }
 
@@ -225,7 +268,6 @@ export class BookCharactersController {
 
       const result = await this.bookCharactersService.updateCharacterContent(
         id,
-        bookId,
         userId,
         file.path,
       );
@@ -233,7 +275,7 @@ export class BookCharactersController {
       return { result };
     } catch (e) {
       if (e instanceof Error) {
-        throw new BadRequestException({ result: false, message: e.message });
+        throw new BadRequestException({ result: false, message: getErrorMessage(e) });
       }
 
       throw httpExeptHandler(e);
@@ -253,27 +295,24 @@ export class BookCharactersController {
   @Delete(':id')
   @CheckAbilities({ action: Actions.Delete, subject: Subjects.BookCharacters })
   async deleteCharacter(
-    @Param('bookId') bookIdStr: string,
     @Param('id') idStr: string,
     @UserLocals() { userId }: IUserLocals,
   ): Promise<ResponseDto<number>> {
     try {
       const id = parseInt(idStr, 10);
-      const bookId = parseInt(bookIdStr, 10);
-      if (Number.isNaN(id) || Number.isNaN(bookId)) {
+      if (Number.isNaN(id)) {
         throw new Error('Произошла ошибка при обработке запроса');
       }
 
       const result = await this.bookCharactersService.deleteCharacter(
         id,
-        bookId,
         userId,
       );
 
       return { result };
     } catch (e) {
       if (e instanceof Error) {
-        throw new BadRequestException({ result: null, message: e.message });
+        throw new BadRequestException({ result: null, message: getErrorMessage(e) });
       }
 
       throw httpExeptHandler(e);

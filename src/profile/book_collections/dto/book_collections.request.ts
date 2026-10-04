@@ -1,12 +1,12 @@
 import { NAME_REGEX_PATTERN } from '@/common/constants/regex.constants';
 import { transformTrimString } from '@/helpers';
+import { IsOptionalNotNull } from '@/decorators';
 import { ApiProperty } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
   IsArray,
   IsInt,
   IsNumber,
-  IsOptional,
   IsString,
   Matches,
   MaxLength,
@@ -24,7 +24,7 @@ export class CreateOrUpdateBookCollectionRequestDto {
   declare name: string;
 
   @ApiProperty({ description: 'сортировка' })
-  @IsOptional()
+  @IsOptionalNotNull()
   @IsInt()
   declare order: number;
 }
@@ -50,7 +50,7 @@ export class AddBookToCollectionRequestDto {
   declare bookId: number;
 
   @ApiProperty({ description: 'сортировка' })
-  @IsOptional()
+  @IsOptionalNotNull()
   @IsInt()
   declare order: number;
 }

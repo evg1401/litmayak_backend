@@ -9,18 +9,31 @@ import {
   SignInCodeRequestDto,
 } from './dto/auth.request.dto';
 import { AuthCodeEventsService } from './auth_code_events.service';
-import { AuthTokens, Users } from '@models';
+import { AuthTokens, Authors, Users } from '@models';
+import slugConverter from 'slug';
+import { createHash, randomBytes } from 'node:crypto';
 import { Channels } from '@/notifications/dto/notifications.dto';
 import { NotificationsService } from '@/notifications/notifications.service';
 import { InjectModel } from '@nestjs/sequelize';
 import { Roles } from 'libs/models/roles.model';
 import { UserRoles } from '@/common/constants/roles.constants';
+import { UserStatus } from '@/common/constants/user_status.constants';
 import { generateJwt, JwtTypes, validateJwt } from 'configs/jwt.config';
 import type { AuthOpts, JwtTokens } from 'configs/jwt.config';
-import { Op } from 'sequelize';
+import { literal, Op, Transaction } from 'sequelize';
 import { JwtPayload } from 'jsonwebtoken';
 import { AuthLogPending } from './dto/auth_code_events.dto';
-import { isTimeExpired, isTimeOver } from '@/helpers';
+import {
+  AdvisoryLockNamespace,
+  isTimeExpired,
+  isTimeOver,
+  lockByKey,
+  whereEmailIgnoreCase,
+} from '@/helpers';
+
+const WRONG_CODE_MESSAGE = 'Введен неверный код авторизации';
+const REFRESH_CODE_ERROR_MESSAGE =
+  'ошибка обновления кода: запросите код заново';
 
 @Injectable()
 export class AuthService {
@@ -30,34 +43,42 @@ export class AuthService {
     @InjectModel(Users) protected usersRepository: typeof Users,
     @InjectModel(AuthTokens) protected authTokensRepository: typeof AuthTokens,
     @InjectModel(Roles) protected rolesRepository: typeof Roles,
+    @InjectModel(Authors) protected authorsRepository: typeof Authors,
     @Inject('AUTH_CONFIG') private authConfig: AuthOpts,
   ) {}
 
   async generateAuthCode(
-    { phone, channel }: GenerateCodeRequestDto,
+    { phone, email, channel }: GenerateCodeRequestDto,
     deviceUid: string,
-  ): Promise<number> {
+  ): Promise<boolean> {
     const code = this.generateCode();
+    const identifier = this.getIdentifierValue({ phone, email });
 
-    if (!(await this.isPossibilityResend(phone, channel, deviceUid))) {
+    if (!(await this.isPossibilityResend(identifier, channel, deviceUid))) {
       throw new Error(
         'Повторный запрос кода авторизации доступен раз в 60 сек для каждого способа получения',
       );
     }
 
-    await this.authCodeEventsService.AddAuthLog({
-      phone,
+    await this.reserveCodeIssue(
+      identifier,
       deviceUid,
-      notifyType: channel,
-      eventType: 'generate_code',
-      status: AuthLogPending.Pending,
-    });
+      channel,
+      'generate_code',
+    );
 
-    const foundUser = await this.usersRepository.findOne({ where: { phone } });
+    const foundUser = await this.usersRepository.findOne({
+      where: this.getIdentifierWhere({ phone, email }),
+    });
     if (!foundUser) {
-      await this.createUser(phone, deviceUid, code);
-      await this.sendCode(Channels[channel], phone, code);
-      return code;
+      await this.createUser({ phone, email }, deviceUid, code);
+      await this.sendCode(Channels[channel], identifier, code);
+
+      return true;
+    }
+
+    if (foundUser.status === UserStatus.Blocked) {
+      throw new Error('Аккаунт заблокирован');
     }
 
     let authToken = await this.authTokensRepository.findOne({
@@ -82,7 +103,7 @@ export class AuthService {
       authToken.deviceUid == deviceUid &&
       authToken.code > 0
     ) {
-      await this.sendCode(Channels[channel], phone, code);
+      await this.sendCode(Channels[channel], identifier, code);
 
       const authTokenQuery = this.createAuthTokenQuery(
         foundUser.id,
@@ -93,25 +114,27 @@ export class AuthService {
       Object.assign(authToken, { ...authTokenQuery });
       await authToken.save();
 
-      return code;
+      return true;
     }
 
-    await this.sendCode(Channels[channel], phone, code);
+    await this.sendCode(Channels[channel], identifier, code);
 
     await this.authByCode(authToken, foundUser.id, deviceUid, code);
 
-    return code;
+    return true;
   }
 
   async refreshAuthCode(
-    { phone, channel }: GenerateCodeRequestDto,
+    { phone, email, channel }: GenerateCodeRequestDto,
     deviceUid: string,
-  ): Promise<number> {
+  ): Promise<boolean> {
+    const identifier = this.getIdentifierValue({ phone, email });
     const user = await this.usersRepository.findOne({
-      where: { phone },
+      where: this.getIdentifierWhere({ phone, email }),
     });
+
     if (!user) {
-      throw new Error('номер телефона не совпадает с запрошенным ранее');
+      throw new Error(REFRESH_CODE_ERROR_MESSAGE);
     }
 
     const authToken = await this.authTokensRepository.findOne({
@@ -119,7 +142,7 @@ export class AuthService {
     });
 
     if (!authToken) {
-      throw new Error('ошибка обновления кода: запросите код заново');
+      throw new Error(REFRESH_CODE_ERROR_MESSAGE);
     }
 
     if (
@@ -133,15 +156,17 @@ export class AuthService {
       );
     }
 
+    await this.reserveCodeIssue(identifier, deviceUid, channel, 'refresh_code');
+
     const code = this.generateCode();
 
     authToken.code = code;
     authToken.codeCreatedAt = Date.now();
     await authToken.save();
 
-    await this.sendCode(Channels[channel], phone, code);
+    await this.sendCode(Channels[channel], identifier, code);
 
-    return code;
+    return true;
   }
 
   async signInCode(
@@ -149,56 +174,44 @@ export class AuthService {
     deviceUid: string,
   ): Promise<JwtTokens> {
     const user = await this.usersRepository.findOne({
-      where: { phone: request.phone },
-      // include: ['role'],
+      where: this.getIdentifierWhere(request),
     });
 
     if (!user) {
-      throw new Error('Введен неверный номер телефона');
+      throw new Error(WRONG_CODE_MESSAGE);
     }
 
-    const userCurrentAuthToken = await this.authTokensRepository.findOne({
+    if (user.status === UserStatus.Blocked) {
+      throw new Error('Аккаунт заблокирован');
+    }
+
+    const activeSession = await this.authTokensRepository.findOne({
+      attributes: ['refreshToken'],
       where: { userId: user.id, deviceUid },
     });
 
-    if (!userCurrentAuthToken) {
-      throw new Error('У Вас нет зарегистрированных запросов кода авторизации');
-    }
-
     if (
-      userCurrentAuthToken.attemptCount >=
-      this.authConfig.authCode.maxNumberCodeAttempts
+      activeSession?.refreshToken &&
+      validateJwt(
+        activeSession.refreshToken,
+        this.authConfig.jwt.secret,
+        this.authConfig.jwt.iss,
+        JwtTypes.Refresh,
+      )
     ) {
-      throw new Error(
-        'Превышен допустимый лимит ошибочных попыток ввода кода авторизации. Повторите запрос кода авторизации.',
-      );
+      throw new Error('Вы уже авторизованы на этом устройстве');
     }
 
-    const authToken = await this.authTokensRepository.findOne({
-      where: { userId: user.id, code: request.code, deviceUid },
-    });
-
-    if (!authToken) {
-      userCurrentAuthToken.attemptCount = userCurrentAuthToken.attemptCount + 1;
-      await userCurrentAuthToken.save();
-
-      throw new Error('Введен неверный код авторизации');
-    }
-
-    const isCodeExpired = this.receivedAuthCodeExpirationCheck(
-      this.authConfig.authCode.recievedAuthCodeLifetime,
-      authToken.codeCreatedAt,
+    const sequelize = this.authTokensRepository.sequelize!;
+    const verification = await sequelize.transaction((transaction) =>
+      this.verifySignInCode(user.id, request.code, deviceUid, transaction),
     );
 
-    if (isCodeExpired) {
-      throw new Error('ошибка авторизации: время действия кода истекло');
+    if ('error' in verification) {
+      throw new Error(verification.error);
     }
 
-    if (authToken.deviceUid !== deviceUid) {
-      throw new InternalServerErrorException(
-        'Запрос проверочного кода произведен с другого устройства. Повторите запрос кода авторизации.',
-      );
-    }
+    const { authToken } = verification;
 
     const jwtPayload = this.buildJwtPayload(
       user.id,
@@ -221,12 +234,10 @@ export class AuthService {
     );
 
     authToken.refreshToken = rt;
-    authToken.attemptCount = 0;
-    authToken.code = 0;
     await authToken.save();
 
-    if (!user.status) {
-      user.status = true;
+    if (user.status === UserStatus.New) {
+      user.status = UserStatus.Verified;
       await user.save();
     }
 
@@ -260,7 +271,7 @@ export class AuthService {
     }
 
     const jwtPayload = this.buildJwtPayload(
-      payload.id,
+      payload.userId,
       payload.roleId,
       this.authConfig.jwt.iss,
     );
@@ -287,19 +298,142 @@ export class AuthService {
     return result[0] > 0;
   }
 
+  private async verifySignInCode(
+    userId: number,
+    code: number,
+    deviceUid: string,
+    transaction: Transaction,
+  ): Promise<{ authToken: AuthTokens } | { error: string }> {
+    const { authCode } = this.authConfig;
+    const userKey = `user:${userId}`;
+
+    await lockByKey(
+      this.authTokensRepository.sequelize!,
+      AdvisoryLockNamespace.SignIn,
+      userKey,
+      transaction,
+    );
+
+    const failures = await this.authCodeEventsService.getRecentSignInFailures(
+      userKey,
+      authCode.failedSignInWindow,
+      authCode.maxFailedSignIns,
+      transaction,
+    );
+
+    if (failures.length >= authCode.maxFailedSignIns) {
+      const unlockAt =
+        failures[authCode.maxFailedSignIns - 1].getTime() +
+        authCode.failedSignInWindow * 1000;
+      const minutes = Math.max(1, Math.ceil((unlockAt - Date.now()) / 60_000));
+
+      return {
+        error: `Слишком много неверных попыток ввода кода. Повторите вход через ${minutes} мин.`,
+      };
+    }
+
+    const [reserved] = await this.authTokensRepository.update(
+      { attemptCount: literal('"attempt_count" + 1') },
+      {
+        where: {
+          userId,
+          deviceUid,
+          attemptCount: { [Op.lt]: authCode.maxNumberCodeAttempts },
+        },
+        transaction,
+      },
+    );
+
+    if (reserved === 0) {
+      const hasCodeRequest = await this.authTokensRepository.count({
+        where: { userId, deviceUid },
+        transaction,
+      });
+
+      if (hasCodeRequest) {
+        return {
+          error:
+            'Превышен допустимый лимит ошибочных попыток ввода кода авторизации. Повторите запрос кода авторизации.',
+        };
+      }
+
+      await this.authCodeEventsService.addSignInFailure(
+        userKey,
+        deviceUid,
+        transaction,
+      );
+      return { error: WRONG_CODE_MESSAGE };
+    }
+
+    const authToken = await this.authTokensRepository.findOne({
+      where: { userId, code, deviceUid },
+      transaction,
+    });
+
+    if (!authToken) {
+      await this.authCodeEventsService.addSignInFailure(
+        userKey,
+        deviceUid,
+        transaction,
+      );
+      return { error: WRONG_CODE_MESSAGE };
+    }
+
+    if (
+      this.receivedAuthCodeExpirationCheck(
+        authCode.recievedAuthCodeLifetime,
+        authToken.codeCreatedAt,
+      )
+    ) {
+      return { error: 'ошибка авторизации: время действия кода истекло' };
+    }
+
+    await authToken.update({ code: 0, attemptCount: 0 }, { transaction });
+
+    return { authToken };
+  }
+
+  private async reserveCodeIssue(
+    identifier: string,
+    deviceUid: string,
+    channel: string,
+    eventType: 'generate_code' | 'refresh_code',
+  ): Promise<void> {
+    const { maxCodesPerIdentifier, codesPerIdentifierWindow } =
+      this.authConfig.authCode;
+
+    const reserved = await this.authCodeEventsService.reserveCodeIssue(
+      {
+        phone: identifier,
+        deviceUid,
+        notifyType: channel,
+        eventType,
+        status: AuthLogPending.Pending,
+      },
+      maxCodesPerIdentifier,
+      codesPerIdentifierWindow,
+    );
+
+    if (!reserved) {
+      throw new Error(
+        `Превышен лимит запросов кода авторизации: не более ${maxCodesPerIdentifier} в ${codesPerIdentifierWindow / 60} мин. Повторите позже.`,
+      );
+    }
+  }
+
   private generateCode(): number {
     return Math.floor(Math.random() * 9000) + 1000;
   }
 
   private async isPossibilityResend(
-    phone: string,
+    identifier: string,
     channel: string,
     deviceUid: string,
   ): Promise<boolean> {
     const now = Date.now();
 
     const result = await this.authCodeEventsService.getLastItemByNotifyType(
-      phone,
+      identifier,
       channel,
       deviceUid,
     );
@@ -384,10 +518,14 @@ export class AuthService {
     return authTokenQuery;
   }
 
-  protected async sendCode(channel: Channels, phone: string, code: number) {
+  protected async sendCode(
+    channel: Channels,
+    identifier: string,
+    code: number,
+  ) {
     const result = await this.notificationsService.send(
       channel,
-      phone,
+      identifier,
       code.toString(),
     );
     if (!result) {
@@ -396,7 +534,7 @@ export class AuthService {
   }
 
   protected async createUser(
-    phone: string,
+    identifier: { phone?: string; email?: string },
     deviceUid: string,
     code: number,
   ): Promise<boolean> {
@@ -404,10 +542,25 @@ export class AuthService {
       where: { code: UserRoles.User },
     });
 
-    const user = await this.usersRepository.create({
-      roleId: role?.id,
-      phone,
-      status: false,
+    const sequelize = this.usersRepository.sequelize!;
+    const user = await sequelize.transaction(async (transaction) => {
+      const created = await this.usersRepository.create(
+        {
+          roleId: role?.id,
+          phone: identifier.phone,
+          email: identifier.email,
+          status: UserStatus.New,
+        },
+        { transaction },
+      );
+
+      created.personalId = this.generatePersonalId(
+        created.id,
+        created.createdAt as Date,
+      );
+      await created.save({ transaction });
+
+      return created;
     });
     if (!user) {
       throw new InternalServerErrorException(
@@ -438,6 +591,15 @@ export class AuthService {
     return true;
   }
 
+  private generatePersonalId(userId: number, createdAt: Date): string {
+    const createdAtSeconds = Math.floor(createdAt.getTime() / 1000);
+    const salt = randomBytes(32).toString('hex');
+
+    return createHash('sha256')
+      .update(`${userId}:${createdAtSeconds}:${salt}`)
+      .digest('hex');
+  }
+
   private buildJwtPayload(
     userId: number,
     roleId: number,
@@ -455,6 +617,67 @@ export class AuthService {
     codeCreatedAt: number,
   ) {
     const now = Date.now();
-    return now - codeCreatedAt > codeLifetime * 1000; // перевод codeLifetime из сек в мс
+    return now - codeCreatedAt > codeLifetime * 1000;
+  }
+
+  private getIdentifierWhere({
+    phone,
+    email,
+  }: {
+    phone?: string;
+    email?: string;
+  }) {
+    if (phone) return { phone };
+    if (email) return whereEmailIgnoreCase(email);
+
+    throw new Error('Не указан телефон или email');
+  }
+
+  private getIdentifierValue({
+    phone,
+    email,
+  }: {
+    phone?: string;
+    email?: string;
+  }): string {
+    if (phone) return phone;
+    if (email) return email;
+
+    throw new Error('Не указан телефон или email');
+  }
+
+  async checkEmailAvailability(email: string): Promise<boolean> {
+    const user = await this.usersRepository.findOne({
+      where: whereEmailIgnoreCase(email),
+    });
+    return !user;
+  }
+
+  async suggestNickname(name: string): Promise<string> {
+    const NICKNAME_MAX_LENGTH = 50;
+
+    const slug = slugConverter(name, { locale: 'ru', lower: true })
+      .replace(/[^a-z0-9]/g, '')
+      .slice(0, NICKNAME_MAX_LENGTH - 2);
+    const base = slug.length >= 3 ? slug : 'user';
+
+    let candidate = base;
+    let suffix = 0;
+
+    while (
+      (await this.usersRepository.findOne({
+        attributes: ['id'],
+        where: { nickname: candidate },
+      })) ||
+      (await this.authorsRepository.findOne({
+        attributes: ['id'],
+        where: { nickname: candidate },
+      }))
+    ) {
+      suffix += 1;
+      candidate = `${base}${suffix}`;
+    }
+
+    return candidate;
   }
 }

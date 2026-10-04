@@ -1,4 +1,4 @@
-import { httpExeptHandler } from '@/helpers';
+import { getErrorMessage, httpExeptHandler } from '@/helpers';
 import {
   BadRequestException,
   Body,
@@ -30,7 +30,6 @@ export class UserBookReviewsController {
     new ValidationPipe({
       transform: false,
       whitelist: true,
-      skipNullProperties: true,
     }),
   )
   async addReview(
@@ -46,7 +45,7 @@ export class UserBookReviewsController {
     } catch (e) {
       if (e instanceof Error) {
         err = e.message;
-        throw new BadRequestException({ result: null, message: e.message });
+        throw new BadRequestException({ result: null, message: getErrorMessage(e) });
       }
 
       err = JSON.stringify(e);

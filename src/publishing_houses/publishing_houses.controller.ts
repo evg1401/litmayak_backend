@@ -1,4 +1,4 @@
-import { httpExeptHandler } from '@/helpers';
+import { getErrorMessage, httpExeptHandler } from '@/helpers';
 import { PublishingHouses } from '@models';
 import {
   BadRequestException,
@@ -34,7 +34,6 @@ export class PublishingHousesController {
     new ValidationPipe({
       transform: false,
       whitelist: true,
-      skipNullProperties: true,
     }),
   )
   async createPublishingHouse(
@@ -49,7 +48,7 @@ export class PublishingHousesController {
     } catch (e) {
       if (e instanceof Error) {
         err = e.message;
-        throw new BadRequestException({ result: null, message: e.message });
+        throw new BadRequestException({ result: null, message: getErrorMessage(e) });
       }
 
       err = JSON.stringify(e);
@@ -63,7 +62,6 @@ export class PublishingHousesController {
     new ValidationPipe({
       transform: false,
       whitelist: true,
-      skipNullProperties: true,
     }),
   )
   async update(
@@ -83,7 +81,7 @@ export class PublishingHousesController {
     } catch (e) {
       if (e instanceof Error) {
         err = e.message;
-        throw new BadRequestException({ result: null, message: e.message });
+        throw new BadRequestException({ result: null, message: getErrorMessage(e) });
       }
 
       err = JSON.stringify(e);

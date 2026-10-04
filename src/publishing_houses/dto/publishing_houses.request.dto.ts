@@ -1,3 +1,4 @@
+import { IsOptionalNotNull } from '@/decorators';
 import {
   createStrNumValidationErrorMessage,
   transformTrimString,
@@ -42,7 +43,7 @@ export class CreatePublishingHousesRequestDto {
 
   @ApiProperty({ description: 'email', maxLength: 150 })
   @Transform(transformTrimString)
-  @IsOptional()
+  @IsOptionalNotNull()
   @MaxLength(150)
   @IsEmail()
   declare email?: string;

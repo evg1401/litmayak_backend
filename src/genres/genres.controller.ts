@@ -1,4 +1,4 @@
-import { httpExeptHandler } from '@/helpers';
+import { getErrorMessage, httpExeptHandler } from '@/helpers';
 import {
   BadRequestException,
   Controller,
@@ -30,13 +30,12 @@ export class GenresController {
     new ValidationPipe({
       transform: true,
       whitelist: true,
-      skipNullProperties: true,
     }),
   )
   async getList(): Promise<ResponseDto<List<BookGenres>>> {
     try {
       const items = await this.genresService.getListAll(
-        ['name', 'slug', 'order'],
+        ['id', 'name', 'slug', 'order', 'parentId'],
         [],
         [['name', 'ASC']],
       );
@@ -49,7 +48,7 @@ export class GenresController {
       };
     } catch (e) {
       if (e instanceof Error) {
-        throw new BadRequestException({ result: null, message: e.message });
+        throw new BadRequestException({ result: null, message: getErrorMessage(e) });
       }
 
       throw httpExeptHandler(e);
@@ -70,7 +69,7 @@ export class GenresController {
       return { result };
     } catch (e) {
       if (e instanceof Error) {
-        throw new BadRequestException({ result: null, message: e.message });
+        throw new BadRequestException({ result: null, message: getErrorMessage(e) });
       }
 
       throw httpExeptHandler(e);
@@ -83,7 +82,6 @@ export class GenresController {
     new ValidationPipe({
       transform: true,
       whitelist: true,
-      skipNullProperties: true,
     }),
   )
   async getGenreBooks(
@@ -99,7 +97,7 @@ export class GenresController {
       return { result };
     } catch (e) {
       if (e instanceof Error) {
-        throw new BadRequestException({ result: null, message: e.message });
+        throw new BadRequestException({ result: null, message: getErrorMessage(e) });
       }
 
       throw httpExeptHandler(e);

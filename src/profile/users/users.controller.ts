@@ -7,11 +7,15 @@ import {
   Get,
   NotFoundException,
   Patch,
+  Query,
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
-import { UpdateUserRequestDto } from './dto/users.request.dto';
-import { httpExeptHandler } from '@/helpers';
+import {
+  CheckNicknameQueryDto,
+  UpdateUserRequestDto,
+} from './dto/users.request.dto';
+import { getErrorMessage, httpExeptHandler } from '@/helpers';
 import { ResponseDto } from 'dto/response.dto';
 import type { IUserLocals } from 'libs/interfaces';
 import { UserLocals } from '@/decorators';
@@ -39,9 +43,30 @@ export class UsersController {
       return { result };
     } catch (e) {
       if (e instanceof Error) {
-        throw new BadRequestException({ result: null, message: e.message });
+        throw new BadRequestException({ result: null, message: getErrorMessage(e) });
       }
 
+      throw httpExeptHandler(e);
+    }
+  }
+
+  @ApiOperation({ summary: 'проверить, свободен ли nickname' })
+  @Get('nickname/check')
+  @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
+  async checkNickname(
+    @Query() query: CheckNicknameQueryDto,
+    @UserLocals() { userId }: IUserLocals,
+  ): Promise<ResponseDto<{ available: boolean }>> {
+    try {
+      const available = await this.usersService.checkNicknameAvailability(
+        userId,
+        query.nickname,
+      );
+      return { result: { available } };
+    } catch (e) {
+      if (e instanceof Error) {
+        throw new BadRequestException({ result: null, message: getErrorMessage(e) });
+      }
       throw httpExeptHandler(e);
     }
   }
@@ -52,7 +77,6 @@ export class UsersController {
     new ValidationPipe({
       transform: false,
       whitelist: true,
-      skipNullProperties: true,
     }),
   )
   async update(
@@ -62,16 +86,13 @@ export class UsersController {
   ): Promise<ResponseDto<number>> {
     let err: any = null;
     try {
-      const result = await this.usersService.update(
-        { ...request },
-        { where: { id: userId } },
-      );
+      const result = await this.usersService.updateProfile(userId, request);
 
-      return { result: result[0] };
+      return { result };
     } catch (e) {
       if (e instanceof Error) {
         err = e.message;
-        throw new BadRequestException({ result: null, message: e.message });
+        throw new BadRequestException({ result: null, message: getErrorMessage(e) });
       }
 
       err = JSON.stringify(e);

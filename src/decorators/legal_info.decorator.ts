@@ -19,7 +19,6 @@ export class EqLengthNumberValidation implements ValidatorConstraintInterface {
   }
 }
 
-// Фабрика с параметрами
 export function IsEqLengthNumber(expectedLength: number, options?: ValidationOptions & { message?: string }) {
   return function (object: Object, propertyName: string) {
     registerDecorator({

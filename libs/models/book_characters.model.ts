@@ -7,6 +7,7 @@ import {
   Table,
 } from 'sequelize-typescript';
 import { Books } from './books.model';
+import { toMediaUrl } from 'configs/media.config';
 
 @Table({
   tableName: 'book_characters',
@@ -34,7 +35,12 @@ export class BookCharacters extends Model {
   @Column({ type: DataType.BOOLEAN, defaultValue: false })
   declare checkStatus: boolean;
 
-  @Column({ type: DataType.STRING(255) })
+  @Column({
+    type: DataType.STRING(255),
+    get(this: BookCharacters) {
+      return toMediaUrl(this.getDataValue('cdnLinkFolder'));
+    },
+  })
   declare cdnLinkFolder: string;
 
   @Column({ type: DataType.TEXT })

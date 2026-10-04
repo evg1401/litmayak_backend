@@ -1,6 +1,7 @@
 import { Provider } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { JwtPayload, sign, TokenExpiredError, verify } from 'jsonwebtoken';
+import { JsonWebTokenError, JwtPayload, sign, verify } from 'jsonwebtoken';
+import { getEnv, getIntEnv } from './helpers';
 
 export interface AuthOpts {
   jwt: {
@@ -13,6 +14,10 @@ export interface AuthOpts {
     maxNumberCodeAttempts: number;
     recievedAuthCodeLifetime: number;
     authCodeInterval: number;
+    maxFailedSignIns: number;
+    failedSignInWindow: number;
+    maxCodesPerIdentifier: number;
+    codesPerIdentifierWindow: number;
   };
   cookie: {
     cookieDomain: string;
@@ -44,26 +49,24 @@ export const authConfigProvider: Provider<AuthOpts> = {
   provide: 'AUTH_CONFIG',
   useFactory: (configService: ConfigService) => ({
     jwt: {
-      secret: configService.get('JWT_SECRET') ?? 'uytfgc',
-      accessExpiresIn: parseInt(
-        configService.get('JWT_ACCESS_EXPIRES_IN') ?? '900',
-        10,
-      ),
-      refreshExpiresIn: parseInt(
-        configService.get('JWT_REFRESH_EXPIRES_IN') ?? '302400',
-        10,
-      ),
-      iss: configService.get('JWT_ISS') ?? '',
+      secret: getEnv('JWT_SECRET', configService),
+      accessExpiresIn: getIntEnv('JWT_ACCESS_EXPIRES_IN', configService),
+      refreshExpiresIn: getIntEnv('JWT_REFRESH_EXPIRES_IN', configService),
+      iss: getEnv('JWT_ISS', configService),
     },
     authCode: {
       maxNumberCodeAttempts: 3,
-      recievedAuthCodeLifetime: 300, // сек
-      authCodeInterval: 60, // сек
+      recievedAuthCodeLifetime: 300,
+      authCodeInterval: 60,
+      // неверных вводов кода на пользователя за окно
+      maxFailedSignIns: 5,
+      failedSignInWindow: 20 * 60,
+      // отправка кода за окно
+      maxCodesPerIdentifier: 8,
+      codesPerIdentifierWindow: 60 * 60,
     },
     cookie: {
-      cookieDomain: toAsciiDomain(
-        configService.get('COOKIE_DOMAIN') ?? 'localhost',
-      ),
+      cookieDomain: toAsciiDomain(getEnv('COOKIE_DOMAIN', configService)),
     },
   }),
   inject: [ConfigService],
@@ -88,7 +91,7 @@ export const validateJwt = (
 
     return payload;
   } catch (e) {
-    if (e instanceof TokenExpiredError) {
+    if (e instanceof JsonWebTokenError) {
       return null;
     }
 

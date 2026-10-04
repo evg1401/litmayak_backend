@@ -1,4 +1,4 @@
-import { httpExeptHandler } from '@/helpers';
+import { getErrorMessage, httpExeptHandler } from '@/helpers';
 import { CheckAbilities, UserLocals } from '@/decorators';
 import {
   BookCollections,
@@ -51,7 +51,6 @@ export class BookCollectionsController {
     new ValidationPipe({
       transform: false,
       whitelist: true,
-      skipNullProperties: true,
     }),
   )
   @CheckAbilities({ action: Actions.Create, subject: Subjects.BookCollections })
@@ -68,7 +67,7 @@ export class BookCollectionsController {
       return { result };
     } catch (e) {
       if (e instanceof Error) {
-        throw new BadRequestException({ result: null, message: e.message });
+        throw new BadRequestException({ result: null, message: getErrorMessage(e) });
       }
 
       throw httpExeptHandler(e);
@@ -81,7 +80,6 @@ export class BookCollectionsController {
     new ValidationPipe({
       transform: true,
       whitelist: true,
-      skipNullProperties: true,
     }),
   )
   @CheckAbilities({ action: Actions.Read, subject: Subjects.BookCollections })
@@ -132,7 +130,7 @@ export class BookCollectionsController {
       };
     } catch (e) {
       if (e instanceof Error) {
-        throw new BadRequestException({ result: null, message: e.message });
+        throw new BadRequestException({ result: null, message: getErrorMessage(e) });
       }
 
       throw httpExeptHandler(e);
@@ -145,7 +143,6 @@ export class BookCollectionsController {
     new ValidationPipe({
       transform: false,
       whitelist: true,
-      skipNullProperties: true,
     }),
   )
   @CheckAbilities({ action: Actions.Update, subject: Subjects.BookCollections })
@@ -169,7 +166,7 @@ export class BookCollectionsController {
       return { result };
     } catch (e) {
       if (e instanceof Error) {
-        throw new BadRequestException({ result: null, message: e.message });
+        throw new BadRequestException({ result: null, message: getErrorMessage(e) });
       }
 
       throw httpExeptHandler(e);
@@ -182,7 +179,6 @@ export class BookCollectionsController {
     new ValidationPipe({
       transform: false,
       whitelist: true,
-      skipNullProperties: true,
     }),
   )
   @CheckAbilities({ action: Actions.Create, subject: Subjects.BookCollections })
@@ -199,7 +195,7 @@ export class BookCollectionsController {
       return { result };
     } catch (e) {
       if (e instanceof Error) {
-        throw new BadRequestException({ result: null, message: e.message });
+        throw new BadRequestException({ result: null, message: getErrorMessage(e) });
       }
 
       throw httpExeptHandler(e);
@@ -212,7 +208,6 @@ export class BookCollectionsController {
     new ValidationPipe({
       transform: false,
       whitelist: true,
-      skipNullProperties: true,
     }),
   )
   @CheckAbilities({ action: Actions.Delete, subject: Subjects.BookCollections })
@@ -230,7 +225,7 @@ export class BookCollectionsController {
       return { result };
     } catch (e) {
       if (e instanceof Error) {
-        throw new BadRequestException({ result: null, message: e.message });
+        throw new BadRequestException({ result: null, message: getErrorMessage(e) });
       }
 
       throw httpExeptHandler(e);

@@ -13,4 +13,6 @@ export enum Subjects {
   BookCollections = 'BookCollections',
   Authors = 'Authors',
   Users = 'Users',
+  Posts = 'Posts',
+  MagazineArticles = 'MagazineArticles',
 }

@@ -37,5 +37,5 @@ src/
 
 ## Запуск
 
-`npm run start:dev` — запуск в режиме разработки.
-`npm run build` — сборка.
+`npm run start:dev` - запуск в режиме разработки.
+`npm run build` - сборка.

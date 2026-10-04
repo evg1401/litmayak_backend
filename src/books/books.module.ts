@@ -1,4 +1,10 @@
-import { Authors, Books, PublishingHouses, UserFavoriteBooks } from '@models';
+import {
+  Authors,
+  BookCharacters,
+  Books,
+  PublishingHouses,
+  UserFavoriteBooks,
+} from '@models';
 import { Module } from '@nestjs/common';
 import { SequelizeModule } from '@nestjs/sequelize';
 import { BooksController } from '@/books/books.controller';
@@ -11,6 +17,7 @@ import { BooksService } from '@/books/books.service';
       Authors,
       PublishingHouses,
       UserFavoriteBooks,
+      BookCharacters,
     ]),
   ],
   controllers: [BooksController],

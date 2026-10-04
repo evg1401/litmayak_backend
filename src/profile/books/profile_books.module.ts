@@ -1,20 +1,32 @@
-import { Authors, Books, PublishingHouses } from '@models';
+import {
+  Authors,
+  Books,
+  BookCharacters,
+  BookGenreMeta,
+  BookGenres,
+  PublishingHouses,
+} from '@models';
 import { Module } from '@nestjs/common';
-import { MulterModule } from '@nestjs/platform-express';
 import { SequelizeModule } from '@nestjs/sequelize';
+import { MulterModule } from '@nestjs/platform-express';
+import { documentsMulterOptions } from 'configs/documents.config';
 import { ProfileBooksController } from '@/profile/books/profile_books.controller';
 import { ProfileBooksService } from './profile_books.service';
-import { BookCharactersModule } from '@/profile/book_characters/book_characters.module';
-import { bookDocumentMulterOptions } from 'configs/documents.config';
+import { EpubImportService } from './epub_import.service';
 
 @Module({
   imports: [
-    SequelizeModule.forFeature([Books, Authors, PublishingHouses]),
-    // настройка лимитов загрузки файла
-    MulterModule.registerAsync(bookDocumentMulterOptions),
-    BookCharactersModule,
+    SequelizeModule.forFeature([
+      Books,
+      Authors,
+      PublishingHouses,
+      BookCharacters,
+      BookGenres,
+      BookGenreMeta,
+    ]),
+    MulterModule.registerAsync(documentsMulterOptions),
   ],
   controllers: [ProfileBooksController],
-  providers: [ProfileBooksService],
+  providers: [ProfileBooksService, EpubImportService],
 })
 export class ProfileBooksModule {}

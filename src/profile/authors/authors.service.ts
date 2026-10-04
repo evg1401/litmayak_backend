@@ -74,6 +74,7 @@ export class AuthorsService {
         'email',
         'phone',
         'status',
+        'verificationStatus',
         'createdAt',
       ],
     });

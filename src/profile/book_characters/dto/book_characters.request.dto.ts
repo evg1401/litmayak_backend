@@ -1,31 +1,34 @@
-import { transformTrimString } from '@/helpers';
-import { IsOptionalNotNull } from '@/decorators';
+import { transformSanitizeHtml, transformTrimString } from '@/helpers';
+import { IsMediaKey, IsOptionalNotNull } from '@/decorators';
 import { ApiProperty } from '@nestjs/swagger';
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsBoolean,
   IsInt,
-  IsOptional,
   IsString,
-  IsUrl,
   MaxLength,
   MinLength,
 } from 'class-validator';
 
 export class CreateBookCharactersRequestDto {
+  @ApiProperty({ description: 'id книги', required: true })
+  @IsInt()
+  declare bookId: number;
+
   @ApiProperty({ description: 'статус публикации' })
-  @IsOptional()
+  @IsOptionalNotNull()
   @IsBoolean()
   status: boolean = false;
 
   @ApiProperty({
-    description: 'ссылка на титульное изображение главы',
+    description:
+      'ключ титульного изображения главы в хранилище (key из POST profile/uploads/presign)',
     maxLength: 255,
   })
   @Transform(transformTrimString)
-  @IsOptional()
+  @IsOptionalNotNull()
   @MaxLength(255)
-  @IsUrl()
+  @IsMediaKey()
   declare cdnLinkFolder: string;
 
   @ApiProperty({ description: 'наименование', maxLength: 255 })
@@ -36,7 +39,7 @@ export class CreateBookCharactersRequestDto {
   declare name: string;
 
   @ApiProperty({ description: 'сортировка' })
-  @IsOptional()
+  @IsOptionalNotNull()
   @IsInt()
   declare order: number;
 }
@@ -61,12 +64,32 @@ export class UpdateBookCharactersRequestDto {
   declare name: string;
 
   @ApiProperty({
-    description: 'ссылка на титульное изображение главы',
+    description:
+      'ключ титульного изображения главы в хранилище (key из POST profile/uploads/presign)',
     maxLength: 255,
   })
   @Transform(transformTrimString)
   @IsOptionalNotNull()
   @MaxLength(255)
-  @IsUrl()
+  @IsMediaKey()
   declare cdnLinkFolder: string;
+
+  @ApiProperty({ description: 'текст главы (html из редактора)' })
+  @Transform(transformSanitizeHtml)
+  @IsOptionalNotNull()
+  @IsString()
+  declare xhtml?: string;
+}
+
+export class GetBookCharactersRequestDto {
+  @ApiProperty({ description: 'id книги' })
+  @Type(() => Number)
+  @IsInt()
+  declare bookId: number;
+}
+
+export class PublishDraftCharactersRequestDto {
+  @ApiProperty({ description: 'id книги' })
+  @IsInt()
+  declare bookId: number;
 }

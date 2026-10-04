@@ -1,7 +1,11 @@
-import { transformNumValue, transformTrimString } from '@/helpers';
+import { transformTrimString } from '@/helpers';
+import { IsMediaKey, IsOptionalNotNull } from '@/decorators';
 import { ApiProperty } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  IsArray,
+  IsBoolean,
   IsInt,
   IsOptional,
   IsString,
@@ -11,9 +15,21 @@ import {
 
 export class CreateBooksRequestDto {
   @ApiProperty({ description: 'id издательского дома', required: false })
-  @IsOptional()
+  @IsOptionalNotNull()
   @IsInt()
   declare publishingHouseId?: number;
+
+  @ApiProperty({
+    description:
+      'id жанров и поджанров книги - можно указывать сразу несколько жанров и несколько поджанров',
+    required: false,
+    type: [Number],
+  })
+  @IsOptionalNotNull()
+  @IsArray()
+  @ArrayMaxSize(20)
+  @IsInt({ each: true })
+  declare genreIds?: number[];
 
   @ApiProperty({ description: 'наименование', maxLength: 256 })
   @Transform(transformTrimString)
@@ -46,19 +62,23 @@ export class CreateBooksRequestDto {
   declare language: string;
 }
 
-export class CreateBookFromFileRequestDto {
-  @ApiProperty({ description: 'id издательского дома', required: false })
-  @Transform(transformNumValue)
-  @IsOptional()
-  @IsInt()
-  declare publishingHouseId?: number;
-}
-
 export class UpdateBooksRequestDto {
   @ApiProperty({ description: 'id издательского дома', required: false })
   @IsOptional()
   @IsInt()
   declare publishingHouseId?: number | null;
+
+  @ApiProperty({
+    description:
+      'id жанров и поджанров книги - полностью заменяет текущий набор',
+    required: false,
+    type: [Number],
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(20)
+  @IsInt({ each: true })
+  declare genreIds?: number[];
 
   @ApiProperty({ description: 'наименование', maxLength: 256 })
   @Transform(transformTrimString)
@@ -94,4 +114,20 @@ export class UpdateBooksRequestDto {
   @MaxLength(50)
   @IsString()
   declare language?: string;
+
+  @ApiProperty({ description: 'статус публикации (true - опубликована)' })
+  @IsOptional()
+  @IsBoolean()
+  declare status?: boolean;
+
+  @ApiProperty({
+    description:
+      'ключи изображений в хранилище (key из POST profile/uploads/presign), обложка первой',
+    type: [String],
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(10)
+  @IsMediaKey('books', { each: true })
+  declare images?: string[];
 }

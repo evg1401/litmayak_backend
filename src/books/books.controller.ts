@@ -1,17 +1,30 @@
-import { httpExeptHandler } from '@/helpers';
-import { Authors, BookReviews, Books } from '@models';
+import { getErrorMessage, httpExeptHandler } from '@/helpers';
+import {
+  Authors,
+  BookCharacters,
+  BookGenreMeta,
+  BookGenres,
+  BookReviews,
+  Books,
+} from '@models';
 import {
   BadRequestException,
   Controller,
   Get,
+  NotFoundException,
   Param,
+  ParseIntPipe,
   Query,
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { PageList, ResponseDto } from 'dto/response.dto';
-import { BooksService } from '@/books/books.service';
+import {
+  BooksService,
+  PublicChapterDetail,
+  PublicChapterListItem,
+} from '@/books/books.service';
 import { QueryParamsRequestDto } from 'dto/request.dto';
 
 const bookIncludes = [
@@ -22,6 +35,19 @@ const bookIncludes = [
   {
     model: BookReviews,
     attributes: { exclude: ['id', 'bookId', 'createdAt', 'updatedAt'] },
+  },
+
+  {
+    model: BookCharacters,
+    separate: true,
+    attributes: ['id'],
+  },
+
+  {
+    model: BookGenreMeta,
+    separate: true,
+    order: [['order', 'ASC']] as [[string, string]],
+    include: [{ model: BookGenres, attributes: ['name', 'slug'] }],
   },
 ];
 
@@ -36,7 +62,6 @@ export class BooksController {
     new ValidationPipe({
       transform: true,
       whitelist: true,
-      skipNullProperties: true,
     }),
   )
   async getList(
@@ -44,8 +69,8 @@ export class BooksController {
   ): Promise<ResponseDto<PageList<Books>>> {
     try {
       const [total, items] = await Promise.all([
-        this.booksService.countListItems(),
-        this.booksService.getList(
+        this.booksService.countPublicListItems(),
+        this.booksService.getPublicList(
           ...query.buildOrderPaginationParams(),
           bookIncludes,
         ),
@@ -60,7 +85,7 @@ export class BooksController {
       };
     } catch (e) {
       if (e instanceof Error) {
-        throw new BadRequestException({ result: null, message: e.message });
+        throw new BadRequestException({ result: null, message: getErrorMessage(e) });
       }
 
       throw httpExeptHandler(e);
@@ -73,7 +98,6 @@ export class BooksController {
     new ValidationPipe({
       transform: true,
       whitelist: true,
-      skipNullProperties: true,
     }),
   )
   async getAuthorList(
@@ -90,7 +114,7 @@ export class BooksController {
       return { result };
     } catch (e) {
       if (e instanceof Error) {
-        throw new BadRequestException({ result: null, message: e.message });
+        throw new BadRequestException({ result: null, message: getErrorMessage(e) });
       }
 
       throw httpExeptHandler(e);
@@ -113,7 +137,59 @@ export class BooksController {
       return { result };
     } catch (e) {
       if (e instanceof Error) {
-        throw new BadRequestException({ result: null, message: e.message });
+        throw new BadRequestException({ result: null, message: getErrorMessage(e) });
+      }
+
+      throw httpExeptHandler(e);
+    }
+  }
+
+  @ApiOperation({ summary: 'главы книги для чтения (только опубликованные)' })
+  @Get(':nickname/:slug/chapters')
+  async getChapters(
+    @Param('nickname') nickname: string,
+    @Param('slug') slug: string,
+  ): Promise<ResponseDto<PublicChapterListItem[]>> {
+    try {
+      const result = await this.booksService.getPublicChapters(
+        nickname,
+        slug,
+      );
+      if (!result) {
+        throw new NotFoundException({ result: null, message: 'книга не найдена' });
+      }
+
+      return { result };
+    } catch (e) {
+      if (e instanceof Error) {
+        throw new BadRequestException({ result: null, message: getErrorMessage(e) });
+      }
+
+      throw httpExeptHandler(e);
+    }
+  }
+
+  @ApiOperation({ summary: 'текст опубликованной главы' })
+  @Get(':nickname/:slug/chapters/:chapterId')
+  async getChapter(
+    @Param('nickname') nickname: string,
+    @Param('slug') slug: string,
+    @Param('chapterId', ParseIntPipe) chapterId: number,
+  ): Promise<ResponseDto<PublicChapterDetail>> {
+    try {
+      const result = await this.booksService.getPublicChapter(
+        nickname,
+        slug,
+        chapterId,
+      );
+      if (!result) {
+        throw new NotFoundException({ result: null, message: 'глава не найдена' });
+      }
+
+      return { result };
+    } catch (e) {
+      if (e instanceof Error) {
+        throw new BadRequestException({ result: null, message: getErrorMessage(e) });
       }
 
       throw httpExeptHandler(e);

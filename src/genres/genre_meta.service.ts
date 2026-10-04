@@ -30,8 +30,17 @@ export class GenresMetaService extends CrudService<BookGenreMeta> {
       return { count: 0, total: 0, items: [] };
     }
 
+    const bookInclude = {
+      model: Books,
+      where: { status: true },
+      attributes: {
+        exclude: ['userId', 'authorId', 'updatedAt'],
+      },
+      include: [{ association: 'author', attributes: ['nickname'] }],
+    };
+
     const [total, items] = await Promise.all([
-      this.model.count({ where: { genreId: genre.id } }),
+      this.model.count({ where: { genreId: genre.id }, include: bookInclude }),
       this.model.findAll({
         where: { genreId: genre.id },
         offset: getOffsetFromPage(page, limit),
@@ -41,12 +50,7 @@ export class GenresMetaService extends CrudService<BookGenreMeta> {
           include: this.validateAttrs(attrs),
           exclude: ['id', 'bookId', 'genreId', 'createdAt', 'updatedAt'],
         },
-        include: {
-          model: Books,
-          attributes: {
-            exclude: ['userId', 'authorId', 'createdAt', 'updatedAt'],
-          },
-        },
+        include: bookInclude,
       }),
     ]);
 

@@ -1,14 +1,17 @@
-import { httpExeptHandler } from '@/helpers';
+import { getErrorMessage, httpExeptHandler } from '@/helpers';
 import { Books } from '@models';
 import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
+  Get,
   HttpCode,
   HttpStatus,
   Param,
   Patch,
   Post,
+  Query,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -22,32 +25,54 @@ import { randomUUID } from 'node:crypto';
 import { unlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { extname } from 'node:path';
-import {
-  SUPPORT_BOOK_EXT,
-  SUPPORT_BOOK_MIME_TYPES,
-} from 'libs/common/book_document_converters';
-import { ResponseDto } from 'dto/response.dto';
+import { PageList, ResponseDto } from 'dto/response.dto';
 import type { IUserLocals } from 'libs/interfaces';
 import { CheckAbilities, UserLocals } from '@/decorators';
 import {
-  CreateBookFromFileRequestDto,
   CreateBooksRequestDto,
   UpdateBooksRequestDto,
 } from './dto/books.request.dto';
-import { ProfileBooksService } from './profile_books.service';
+import {
+  ProfileBooksService,
+  OwnBookDetail,
+  OwnBookView,
+} from './profile_books.service';
+import {
+  EpubImportService,
+  EpubImportResult,
+  EpubMetadataPreview,
+} from './epub_import.service';
 import { Actions, Subjects } from '@/common/constants/abilities.constants';
 import { AbilitiesGuard } from '@/guards/abilities.guard';
-import { AppLogger } from '@/logger/logger.service';
+import { QueryParamsRequestDto } from 'dto/request.dto';
 
-const documentExtension = (
-  file: Pick<Express.Multer.File, 'originalname'>,
-): string => extname(file.originalname).toLowerCase();
+const EPUB_EXT = '.epub';
+const EPUB_MIME_TYPES = ['application/epub+zip'];
 
-const isSupportedBookDocument = (
-  file: Pick<Express.Multer.File, 'originalname' | 'mimetype'>,
-): boolean =>
-  SUPPORT_BOOK_EXT.includes(documentExtension(file)) &&
-  SUPPORT_BOOK_MIME_TYPES.includes(file.mimetype);
+function epubFileInterceptor() {
+  return FileInterceptor('file', {
+    storage: diskStorage({
+      destination: tmpdir(),
+      filename: (_, file, callback) =>
+        callback(null, `${randomUUID()}${extname(file.originalname)}`),
+    }),
+    fileFilter: (_, file, callback) => {
+      const ext = extname(file.originalname).toLowerCase();
+      const isEpub =
+        ext === EPUB_EXT ||
+        EPUB_MIME_TYPES.includes(file.mimetype.toLowerCase());
+      isEpub
+        ? callback(null, true)
+        : callback(
+            new BadRequestException({
+              result: null,
+              message: 'ожидается файл формата .epub',
+            }),
+            false,
+          );
+    },
+  });
+}
 
 @ApiTags('Книги')
 @Controller('profile/books')
@@ -55,8 +80,59 @@ const isSupportedBookDocument = (
 export class ProfileBooksController {
   constructor(
     private readonly profileBooksService: ProfileBooksService,
-    private readonly logger: AppLogger,
+    private readonly epubImportService: EpubImportService,
   ) {}
+
+  @ApiOperation({ summary: 'мои книги (автор)' })
+  @Get()
+  @UsePipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+    }),
+  )
+  @CheckAbilities({ action: Actions.Read, subject: Subjects.Books })
+  async getOwn(
+    @Query() query: QueryParamsRequestDto,
+    @UserLocals() { userId }: IUserLocals,
+  ): Promise<ResponseDto<PageList<OwnBookView>>> {
+    try {
+      const result = await this.profileBooksService.getOwnBooks(
+        userId,
+        query.page,
+        query.limit,
+      );
+      return { result };
+    } catch (e) {
+      if (e instanceof Error) {
+        throw new BadRequestException({ result: null, message: getErrorMessage(e) });
+      }
+      throw httpExeptHandler(e);
+    }
+  }
+
+  @ApiOperation({ summary: 'моя книга' })
+  @Get(':id')
+  @CheckAbilities({ action: Actions.Read, subject: Subjects.Books })
+  async getOne(
+    @Param('id') idStr: string,
+    @UserLocals() { userId }: IUserLocals,
+  ): Promise<ResponseDto<OwnBookDetail>> {
+    try {
+      const id = parseInt(idStr, 10);
+      if (Number.isNaN(id)) {
+        throw new Error('Произошла ошибка при обработке запроса');
+      }
+
+      const result = await this.profileBooksService.getOwnBook(userId, id);
+      return { result };
+    } catch (e) {
+      if (e instanceof Error) {
+        throw new BadRequestException({ result: null, message: getErrorMessage(e) });
+      }
+      throw httpExeptHandler(e);
+    }
+  }
 
   @ApiOperation({ summary: 'создать книгу' })
   @Post()
@@ -65,7 +141,6 @@ export class ProfileBooksController {
     new ValidationPipe({
       transform: false,
       whitelist: true,
-      skipNullProperties: true,
     }),
   )
   @CheckAbilities({ action: Actions.Create, subject: Subjects.Books })
@@ -79,7 +154,7 @@ export class ProfileBooksController {
       return { result };
     } catch (e) {
       if (e instanceof Error) {
-        throw new BadRequestException({ result: null, message: e.message });
+        throw new BadRequestException({ result: null, message: getErrorMessage(e) });
       }
 
       throw httpExeptHandler(e);
@@ -92,7 +167,6 @@ export class ProfileBooksController {
     new ValidationPipe({
       transform: false,
       whitelist: true,
-      skipNullProperties: true,
     }),
   )
   @CheckAbilities({ action: Actions.Update, subject: Subjects.Books })
@@ -112,91 +186,121 @@ export class ProfileBooksController {
       return { result };
     } catch (e) {
       if (e instanceof Error) {
-        throw new BadRequestException({ result: null, message: e.message });
+        throw new BadRequestException({ result: null, message: getErrorMessage(e) });
       }
 
       throw httpExeptHandler(e);
     }
   }
 
-  @ApiOperation({ summary: 'загрузить книгу из файла' })
+  @ApiOperation({
+    summary: 'импортировать книгу из epub (метаданные + главы)',
+  })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {
       type: 'object',
       required: ['file'],
       properties: {
-        file: {
-          type: 'string',
-          format: 'binary',
-          description: 'документ книги',
-        },
-        publishingHouseId: {
-          type: 'integer',
-          description: 'id издательского дома',
-        },
+        file: { type: 'string', format: 'binary', description: 'файл .epub' },
       },
     },
   })
-  @Post('content')
-  @HttpCode(HttpStatus.CREATED)
-  @UsePipes(
-    new ValidationPipe({
-      transform: true,
-      whitelist: true,
-    }),
-  )
-  @UseInterceptors(
-    FileInterceptor('file', {
-      storage: diskStorage({
-        destination: tmpdir(),
-        filename: (_, file, callback) =>
-          callback(null, `${randomUUID()}${documentExtension(file)}`),
-      }),
-      fileFilter: (_, file, callback) =>
-        isSupportedBookDocument(file)
-          ? callback(null, true)
-          : callback(
-              new BadRequestException({
-                result: null,
-                message: `ожидается документ форматов: ${SUPPORT_BOOK_EXT.join(', ')}`,
-              }),
-              false,
-            ),
-    }),
-  )
-  @CheckAbilities({ action: Actions.Create, subject: Subjects.Books })
-  async createBookFromFile(
+  @Post(':id/import-epub')
+  @UseInterceptors(epubFileInterceptor())
+  @CheckAbilities({ action: Actions.Update, subject: Subjects.Books })
+  async importEpub(
+    @Param('id') idStr: string,
     @UploadedFile() file: Express.Multer.File | undefined,
-    @Body() request: CreateBookFromFileRequestDto,
     @UserLocals() { userId }: IUserLocals,
-  ): Promise<ResponseDto<Books>> {
+  ): Promise<ResponseDto<EpubImportResult>> {
     try {
+      const id = parseInt(idStr, 10);
+      if (Number.isNaN(id)) {
+        throw new Error('Произошла ошибка при обработке запроса');
+      }
       if (!file) {
-        throw new Error('книга не была загружена');
+        throw new Error('файл не был передан');
       }
 
-      const result = await this.profileBooksService.createFromFile(
+      const result = await this.epubImportService.importEpub(
         userId,
+        id,
         file.path,
-        request,
       );
       return { result };
     } catch (e) {
       if (e instanceof Error) {
-        throw new BadRequestException({ result: null, message: e.message });
+        throw new BadRequestException({ result: null, message: getErrorMessage(e) });
       }
-
       throw httpExeptHandler(e);
     } finally {
       if (file?.path) {
-        await unlink(file.path).catch((e: unknown) =>
-          this.logger.error(
-            `не удалось удалить временный файл ${file.path}`,
-            e instanceof Error ? e.stack : String(e),
-          ),
-        );
+        await unlink(file.path).catch(() => {});
       }
+    }
+  }
+
+  @ApiOperation({
+    summary: 'предпросмотр метаданных epub (без сохранения, книги ещё нет)',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['file'],
+      properties: {
+        file: { type: 'string', format: 'binary', description: 'файл .epub' },
+      },
+    },
+  })
+  @Post('parse-epub')
+  @UseInterceptors(epubFileInterceptor())
+  @CheckAbilities({ action: Actions.Create, subject: Subjects.Books })
+  async parseEpub(
+    @UploadedFile() file: Express.Multer.File | undefined,
+  ): Promise<ResponseDto<EpubMetadataPreview>> {
+    try {
+      if (!file) {
+        throw new Error('файл не был передан');
+      }
+
+      const result = await this.epubImportService.parseMetadataOnly(
+        file.path,
+      );
+      return { result };
+    } catch (e) {
+      if (e instanceof Error) {
+        throw new BadRequestException({ result: null, message: getErrorMessage(e) });
+      }
+      throw httpExeptHandler(e);
+    } finally {
+      if (file?.path) {
+        await unlink(file.path).catch(() => {});
+      }
+    }
+  }
+
+  @ApiOperation({ summary: 'удалить книгу' })
+  @Delete(':id')
+  @CheckAbilities({ action: Actions.Delete, subject: Subjects.Books })
+  async deleteOne(
+    @Param('id') idStr: string,
+    @UserLocals() { userId }: IUserLocals,
+  ): Promise<ResponseDto<boolean>> {
+    try {
+      const id = parseInt(idStr, 10);
+      if (Number.isNaN(id)) {
+        throw new Error('Произошла ошибка при обработке запроса');
+      }
+
+      await this.profileBooksService.deleteOwnBook(userId, id);
+      return { result: true };
+    } catch (e) {
+      if (e instanceof Error) {
+        throw new BadRequestException({ result: null, message: getErrorMessage(e) });
+      }
+      throw httpExeptHandler(e);
     }
   }
 }

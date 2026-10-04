@@ -1,104 +1,188 @@
-import { Authors, Books, PublishingHouses } from '@models';
+import {
+  Authors,
+  Books,
+  BookCharacters,
+  BookGenreMeta,
+  BookGenres,
+  PublishingHouses,
+} from '@models';
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
-import { Sequelize } from 'sequelize-typescript';
-import { getBookDocumentConverter } from 'libs/common/book_document_converters';
 import {
-  CreateBookFromFileRequestDto,
   CreateBooksRequestDto,
   UpdateBooksRequestDto,
 } from './dto/books.request.dto';
 import slugConverter from 'slug';
-import { BookCharactersService } from '@/profile/book_characters/book_characters.service';
+import { getOffsetFromPage, normalizeOwnMediaKeys } from '@/helpers';
+import { PageList } from 'dto/response.dto';
+
+export interface OwnBookView {
+  id: number;
+  name: string;
+  slug: string;
+  images: string[];
+  status: boolean;
+  genres: string[];
+  chaptersCount: number;
+  createdAt: Date;
+}
+
+export interface OwnBookDetail {
+  id: number;
+  name: string;
+  description: string;
+  language: string;
+  year: string;
+  uid: string;
+  images: string[];
+  status: boolean;
+  publishingHouseId: number | null;
+  genreIds: number[];
+  chaptersCount: number;
+}
 
 @Injectable()
 export class ProfileBooksService {
   constructor(
-    private readonly sequelize: Sequelize,
-    protected readonly bookCharactersService: BookCharactersService,
     @InjectModel(Books)
     protected booksRepository: typeof Books,
     @InjectModel(PublishingHouses)
     protected publishingHousesRepository: typeof PublishingHouses,
     @InjectModel(Authors)
     protected authorsRepository: typeof Authors,
+    @InjectModel(BookGenres)
+    protected genresRepository: typeof BookGenres,
+    @InjectModel(BookGenreMeta)
+    protected genreMetaRepository: typeof BookGenreMeta,
+    @InjectModel(BookCharacters)
+    protected charactersRepository: typeof BookCharacters,
   ) {}
+
+  async getOwnBooks(
+    userId: number,
+    page = 1,
+    limit = 100,
+  ): Promise<PageList<OwnBookView>> {
+    const author = await this.getAuthorByUserId(userId);
+
+    const [total, books] = await Promise.all([
+      this.booksRepository.count({ where: { authorId: author.id } }),
+      this.booksRepository.findAll({
+        where: { authorId: author.id },
+        offset: getOffsetFromPage(page, limit),
+        limit,
+        order: [['id', 'DESC']],
+        include: [
+          {
+            model: BookGenreMeta,
+            separate: true,
+            order: [['order', 'ASC']],
+            include: [{ model: BookGenres, attributes: ['name'] }],
+          },
+          {
+            model: BookCharacters,
+            separate: true,
+            attributes: ['id'],
+          },
+        ],
+      }),
+    ]);
+
+    return {
+      count: books.length,
+      total,
+      items: books.map((book) => this.presentOwnBook(book)),
+    };
+  }
+
+  private presentOwnBook(book: Books): OwnBookView {
+    return {
+      id: book.id,
+      name: book.name,
+      slug: book.slug,
+      images: book.images ?? [],
+      status: book.status,
+      genres: (book.genreMeta ?? [])
+        .map((meta) => meta.genre?.name)
+        .filter((name): name is string => !!name),
+      chaptersCount: book.characters?.length ?? 0,
+      createdAt: book.createdAt,
+    };
+  }
+
+  async getOwnBook(userId: number, id: number): Promise<OwnBookDetail> {
+    const author = await this.getAuthorByUserId(userId);
+
+    const book = await this.booksRepository.findOne({
+      where: { id, authorId: author.id },
+      include: [
+        { model: BookGenreMeta, separate: true, attributes: ['genreId'] },
+        { model: BookCharacters, separate: true, attributes: ['id'] },
+      ],
+    });
+    if (!book) throw new Error('книга не найдена');
+
+    return {
+      id: book.id,
+      name: book.name,
+      description: book.description ?? '',
+      language: book.language ?? '',
+      year: book.year ?? '',
+      uid: book.uid ?? '',
+      images: book.images ?? [],
+      status: book.status,
+      publishingHouseId: book.publishingHouseId,
+      genreIds: (book.genreMeta ?? []).map((meta) => meta.genreId),
+      chaptersCount: book.characters?.length ?? 0,
+    };
+  }
+
+  async deleteOwnBook(userId: number, id: number): Promise<void> {
+    const author = await this.getAuthorByUserId(userId);
+
+    const book = await this.booksRepository.findOne({
+      attributes: ['id'],
+      where: { id, authorId: author.id },
+    });
+    if (!book) throw new Error('книга не найдена');
+
+    await this.booksRepository.destroy({ where: { id } });
+  }
 
   async create(userId: number, request: CreateBooksRequestDto): Promise<Books> {
     const author = await this.getAuthorByUserId(userId);
+    const { genreIds, ...bookFields } = request;
 
-    if (request.publishingHouseId) {
-      await this.checkPublishingHouseExists(request.publishingHouseId);
+    if (bookFields.publishingHouseId) {
+      const existingPublishingHouses =
+        await this.publishingHousesRepository.findByPk(
+          bookFields.publishingHouseId,
+        );
+
+      if (!existingPublishingHouses) {
+        throw new Error('указан не существующий издательский дом');
+      }
     }
 
-    const slug = await this.getFreeBookSlug(author.id, request.name);
+    const slug = slugConverter(bookFields.name, { locale: 'ru', lower: true });
 
-    return this.booksRepository.create({
-      ...request,
+    const existingBook = await this.booksRepository.findOne({
+      attributes: ['author_id', 'slug'],
+      where: { authorId: author.id, slug },
+    });
+    if (existingBook) throw new Error('книга с таким названием уже существует');
+
+    const book = await this.booksRepository.create({
+      ...bookFields,
       authorId: author.id,
       slug,
     });
-  }
 
-  async createFromFile(
-    userId: number,
-    documentPath: string,
-    request: CreateBookFromFileRequestDto,
-  ): Promise<Books> {
-    // если заголовок окажется слишком длинным
-    const BOOK_NAME_MAX_LENGTH = 256;
-    const CHARACTER_NAME_MAX_LENGTH = 255;
-
-    const converter = getBookDocumentConverter(documentPath);
-    if (!converter?.parseBook) {
-      throw new Error('формат документа не поддерживается');
+    if (genreIds?.length) {
+      await this.syncGenres(book.id, genreIds);
     }
 
-    const author = await this.getAuthorByUserId(userId);
-
-    if (request.publishingHouseId) {
-      await this.checkPublishingHouseExists(request.publishingHouseId);
-    }
-
-    const document = await converter.parseBook(documentPath);
-
-    const name = document.title.slice(0, BOOK_NAME_MAX_LENGTH).trim();
-    if (!name) throw new Error('в документе не указано название книги');
-
-    const characters = document.characters.map((character) => ({
-      name: character.name.slice(0, CHARACTER_NAME_MAX_LENGTH).trim(),
-      xhtml: this.bookCharactersService.toCharacterXhtml(
-        converter,
-        character.html,
-      ),
-    }));
-    if (characters.length === 0) {
-      throw new Error('документ не содержит глав с текстом');
-    }
-
-    const slug = await this.getFreeBookSlug(author.id, name);
-
-    return this.sequelize.transaction(async (transaction) => {
-      const book = await this.booksRepository.create(
-        {
-          name,
-          authorId: author.id,
-          publishingHouseId: request.publishingHouseId,
-          slug,
-        },
-        { transaction },
-      );
-
-      for (const [index, character] of characters.entries()) {
-        await this.bookCharactersService.createBookCharacter(
-          author.id,
-          { ...character, bookId: book.id, status: true, order: index + 1 },
-          transaction,
-        );
-      }
-
-      return book;
-    });
+    return book;
   }
 
   async update(
@@ -107,9 +191,25 @@ export class ProfileBooksService {
     request: UpdateBooksRequestDto,
   ): Promise<number> {
     const author = await this.getAuthorByUserId(userId);
+    const { genreIds, ...bookFields } = request;
 
-    if (request.name) {
-      const slug = slugConverter(request.name, { locale: 'ru', lower: true });
+    // нельзя опубликовать книгу, если нет опубликованных глав
+    if (bookFields.status === true) {
+      const publishedChaptersCount = await this.charactersRepository.count({
+        where: { bookId: id, status: true },
+      });
+      if (publishedChaptersCount === 0) {
+        throw new Error(
+          'нельзя опубликовать книгу без ни одной опубликованной главы',
+        );
+      }
+    }
+
+    if (bookFields.name) {
+      const slug = slugConverter(bookFields.name, {
+        locale: 'ru',
+        lower: true,
+      });
 
       const existingBook = await this.booksRepository.findOne({
         attributes: ['id'],
@@ -119,42 +219,46 @@ export class ProfileBooksService {
         throw new Error('книга с таким названием уже существует');
       }
 
-      request['slug'] = slug;
+      bookFields['slug'] = slug;
+    }
+
+    if (bookFields.images) {
+      bookFields.images = await normalizeOwnMediaKeys(
+        userId,
+        bookFields.images,
+      );
     }
 
     const result = await this.booksRepository.update(
-      { ...request },
+      { ...bookFields },
       { where: { id, authorId: author.id } },
     );
+
+    if (genreIds !== undefined) {
+      await this.syncGenres(id, genreIds);
+    }
 
     return result[0];
   }
 
-  private async getFreeBookSlug(
-    authorId: number,
-    name: string,
-  ): Promise<string> {
-    const slug = slugConverter(name, { locale: 'ru', lower: true });
+  private async syncGenres(bookId: number, genreIds: number[]): Promise<void> {
+    const uniqueIds = [...new Set(genreIds)];
 
-    const existingBook = await this.booksRepository.findOne({
-      attributes: ['author_id', 'slug'],
-      where: { authorId, slug },
-    });
-    if (existingBook) throw new Error('книга с таким названием уже существует');
-
-    return slug;
-  }
-
-  private async checkPublishingHouseExists(
-    publishingHouseId: number,
-  ): Promise<void> {
-    const existingPublishingHouse =
-      await this.publishingHousesRepository.findByPk(publishingHouseId, {
-        attributes: ['id'],
+    if (uniqueIds.length) {
+      const existingCount = await this.genresRepository.count({
+        where: { id: uniqueIds },
       });
+      if (existingCount !== uniqueIds.length) {
+        throw new Error('указан не существующий жанр или поджанр');
+      }
+    }
 
-    if (!existingPublishingHouse) {
-      throw new Error('указан не существующий издательский дом');
+    await this.genreMetaRepository.destroy({ where: { bookId } });
+
+    if (uniqueIds.length) {
+      await this.genreMetaRepository.bulkCreate(
+        uniqueIds.map((genreId, order) => ({ bookId, genreId, order })),
+      );
     }
   }
 

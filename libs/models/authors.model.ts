@@ -7,6 +7,7 @@ import {
   Table,
 } from 'sequelize-typescript';
 import { Users } from './users.model';
+import { toMediaUrls } from 'configs/media.config';
 
 @Table({
   tableName: 'authors',
@@ -40,7 +41,12 @@ export class Authors extends Model {
   @Column({ type: DataType.BOOLEAN })
   declare showOnlyNickname: boolean;
 
-  @Column({ type: DataType.JSONB })
+  @Column({
+    type: DataType.JSONB,
+    get(this: Authors) {
+      return toMediaUrls(this.getDataValue('images'));
+    },
+  })
   declare images: string[];
 
   @Column({ type: DataType.STRING(150) })
@@ -54,6 +60,9 @@ export class Authors extends Model {
 
   @Column({ type: DataType.INTEGER })
   declare level: number;
+
+  @Column({ type: DataType.STRING(20), defaultValue: 'unverified' })
+  declare verificationStatus: string;
 
   @BelongsTo(() => Users)
   declare user: Users;
